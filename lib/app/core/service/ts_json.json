@@ -1,0 +1,22 @@
+{
+    "ts": {
+        "id": 1,
+        "name": "Nome da TS",
+        "projects": [
+            {
+                "id": 101,
+                "name": "Nome do Projeto 1",
+                "classrooms": [
+                    {
+                        "id": 1001,
+                        "name": "Sala A"
+                    },
+                    {
+                        "id": 1002,
+                        "name": "Sala B"
+                    }
+                ]
+            }
+        ]
+    }
+}
