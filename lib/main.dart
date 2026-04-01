@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:br_thp_meubenapp/app/feature/auth/auth_page.dart';
+import 'package:br_thp_meubenapp/app/feature/api_examples/api_examples_page.dart';
+import 'package:br_thp_meubenapp/app/feature/classroom/classroom.dart';
 import 'package:br_thp_meubenapp/app/feature/home/home_page.dart';
+import 'package:br_thp_meubenapp/app/feature/meeting/meeting_page.dart';
+import 'package:br_thp_meubenapp/app/feature/work_plan/work_plan_page.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 
 void main() {
@@ -32,12 +36,17 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
+        scaffoldBackgroundColor: AppColors.background,
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
       ),
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthPage(),
         '/home': (context) => const HomePage(title: 'Tecnologias Sociais'),
+        '/work_plan': (context) => const WorkPlanPage(),
+        '/classroom': (context) => const ClassroomPage(),
+        '/meeting': (context) => const MeetingPage(),
+        '/api_examples': (context) => const ApiExamplesPage(),
       },
     );
   }
