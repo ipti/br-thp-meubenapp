@@ -2,28 +2,39 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:br_thp_meubenapp/app/core/config/api_config.dart';
+import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_exception.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_response.dart';
 import 'package:br_thp_meubenapp/app/core/network/i_api_client.dart';
+import 'package:br_thp_meubenapp/app/core/storage/token/i_token_storage.dart';
+import 'package:br_thp_meubenapp/app/core/storage/token/token_storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiClient implements IApiClient {
-  ApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({http.Client? client, ITokenStorage? tokenStorage})
+    : _client = client ?? http.Client(),
+      _tokenStorage = tokenStorage ?? TokenStorage();
 
   final http.Client _client;
+  final ITokenStorage _tokenStorage;
   final Duration _timeout = const Duration(seconds: 20);
+  static bool _isRedirectingToLogin = false;
 
   @override
   Future<ApiResponse> get(
     String endpoint, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   }) {
     return _request(
       method: 'GET',
       endpoint: endpoint,
       headers: headers,
       queryParameters: queryParameters,
+      withAuthToken: withAuthToken,
+      token: token,
     );
   }
 
@@ -33,6 +44,8 @@ class ApiClient implements IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   }) {
     return _request(
       method: 'POST',
@@ -40,6 +53,8 @@ class ApiClient implements IApiClient {
       headers: headers,
       body: body,
       queryParameters: queryParameters,
+      withAuthToken: withAuthToken,
+      token: token,
     );
   }
 
@@ -49,6 +64,8 @@ class ApiClient implements IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   }) {
     return _request(
       method: 'PUT',
@@ -56,6 +73,8 @@ class ApiClient implements IApiClient {
       headers: headers,
       body: body,
       queryParameters: queryParameters,
+      withAuthToken: withAuthToken,
+      token: token,
     );
   }
 
@@ -65,6 +84,8 @@ class ApiClient implements IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   }) {
     return _request(
       method: 'PATCH',
@@ -72,6 +93,8 @@ class ApiClient implements IApiClient {
       headers: headers,
       body: body,
       queryParameters: queryParameters,
+      withAuthToken: withAuthToken,
+      token: token,
     );
   }
 
@@ -81,6 +104,8 @@ class ApiClient implements IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   }) {
     return _request(
       method: 'DELETE',
@@ -88,6 +113,8 @@ class ApiClient implements IApiClient {
       headers: headers,
       body: body,
       queryParameters: queryParameters,
+      withAuthToken: withAuthToken,
+      token: token,
     );
   }
 
@@ -97,11 +124,18 @@ class ApiClient implements IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    required bool withAuthToken,
+    String? token,
   }) async {
     final uri = _buildUri(endpoint, queryParameters);
+    final authHeader = await _buildAuthHeader(
+      withAuthToken: withAuthToken,
+      explicitToken: token,
+    );
     final mergedHeaders = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...authHeader,
       ...?headers,
     };
 
@@ -140,6 +174,10 @@ class ApiClient implements IApiClient {
       final parsedData = _decodeBody(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return ApiResponse(statusCode: response.statusCode, data: parsedData);
+      }
+
+      if (withAuthToken && _isUnauthorized(response.statusCode)) {
+        await _handleUnauthorized();
       }
 
       final errorMessage = _extractErrorMessage(parsedData);
@@ -195,5 +233,32 @@ class ApiClient implements IApiClient {
       }
     }
     return 'A API retornou erro.';
+  }
+
+  Future<Map<String, String>> _buildAuthHeader({
+    required bool withAuthToken,
+    String? explicitToken,
+  }) async {
+    if (!withAuthToken) return {};
+
+    final token = explicitToken ?? await _tokenStorage.getToken();
+    if (token == null || token.isEmpty) return {};
+
+    return {'Authorization': 'Bearer $token'};
+  }
+
+  bool _isUnauthorized(int statusCode) {
+    return statusCode == 401 || statusCode == 403;
+  }
+
+  Future<void> _handleUnauthorized() async {
+    await _tokenStorage.clearToken();
+    if (_isRedirectingToLogin) return;
+
+    _isRedirectingToLogin = true;
+    AppNavigator.redirectToLogin();
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      _isRedirectingToLogin = false;
+    });
   }
 }

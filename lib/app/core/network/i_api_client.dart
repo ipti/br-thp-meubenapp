@@ -5,6 +5,8 @@ abstract class IApiClient {
     String endpoint, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   });
 
   Future<ApiResponse> post(
@@ -12,6 +14,8 @@ abstract class IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   });
 
   Future<ApiResponse> put(
@@ -19,6 +23,8 @@ abstract class IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   });
 
   Future<ApiResponse> patch(
@@ -26,6 +32,8 @@ abstract class IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   });
 
   Future<ApiResponse> delete(
@@ -33,5 +41,7 @@ abstract class IApiClient {
     Map<String, String>? headers,
     Object? body,
     Map<String, dynamic>? queryParameters,
+    bool withAuthToken = false,
+    String? token,
   });
 }

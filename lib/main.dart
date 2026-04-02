@@ -1,3 +1,4 @@
+import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
 
 import 'package:br_thp_meubenapp/app/feature/auth/auth_page.dart';
@@ -19,6 +20,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: AppNavigator.navigatorKey,
       title: 'Meuben',
       theme: ThemeData(
         // This is the theme of your application.

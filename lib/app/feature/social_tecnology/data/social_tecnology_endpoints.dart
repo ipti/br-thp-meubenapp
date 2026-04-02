@@ -1,8 +1,9 @@
 class SocialTecnollogyPageEndpoints {
   SocialTecnollogyPageEndpoints._();
 
-  static const String socialTechnologyUser = '/social-technology-bff/user';
+  static const String socialTechnologyUser =
+      '/social-technology-bff/user-token';
 
-  static String socialTechnologyUserById(String userId) =>
-      '$socialTechnologyUser?userId=$userId';
+  static String socialTechnologyUserByYear(int year) =>
+      '$socialTechnologyUser?year=$year';
 }

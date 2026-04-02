@@ -1,5 +1,7 @@
-import 'package:br_thp_meubenapp/app/core/network/api_response.dart';
+import 'package:br_thp_meubenapp/app/feature/social_tecnology/data/models/social_technology_model.dart';
 
 abstract class ISocialTecnollogyRepository {
-  Future<ApiResponse> getSocialTechnologyOne(String id, int year);
+  Future<List<SocialTechnologyModel>> getSocialTechnologyUser({
+    required int year,
+  });
 }

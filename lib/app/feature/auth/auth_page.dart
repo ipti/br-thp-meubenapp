@@ -4,7 +4,6 @@ import 'package:br_thp_meubenapp/app/core/network/api_client.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_exception.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/i_token_storage.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/token_storage.dart';
-import 'package:br_thp_meubenapp/app/core/storage/user/i_user_storage.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 
 import 'package:br_thp_meubenapp/app/feature/auth/data/repositories/auth_repository.dart';
@@ -23,7 +22,6 @@ class _AuthPageState extends State<AuthPage> {
   late final TextEditingController _passwordController;
   late final IAuthRepository _authRepository;
   late final ITokenStorage _tokenStorage;
-  late final IUserStorage _userStorage;
   bool _isLoading = false;
 
   @override
@@ -60,8 +58,7 @@ class _AuthPageState extends State<AuthPage> {
         username: username,
         password: password,
       );
-      await _tokenStorage.saveToken(token['token']);
-      await _userStorage.saveUser(token['userId']);
+      await _tokenStorage.saveToken(token);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -9,7 +9,7 @@ class AuthRepository implements IAuthRepository {
   final IApiClient _apiClient;
 
   @override
-  Future<Map<String, dynamic>> login({
+  Future<String> login({
     required String username,
     required String password,
   }) async {
@@ -25,7 +25,7 @@ class AuthRepository implements IAuthRepository {
     );
   }
 
-  Map<String, dynamic>? _extractToken(dynamic json) {
+  String? _extractToken(dynamic json) {
     if (json is Map<String, dynamic>) {
       final direct =
           json['token'] ??
@@ -33,9 +33,7 @@ class AuthRepository implements IAuthRepository {
           json['access_token'] ??
           json['jwt'];
 
-      final userId = json['userId'] ?? json['user_id'];
-      if (direct is String && direct.isNotEmpty)
-        return {'token': direct, 'userId': userId};
+      if (direct is String && direct.isNotEmpty) return direct;
 
       for (final value in json.values) {
         final nestedToken = _extractToken(value);
