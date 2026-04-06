@@ -8,6 +8,7 @@ import 'package:br_thp_meubenapp/app/feature/home/home_page.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/meeting_detail_page.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/meeting_page.dart';
 import 'package:br_thp_meubenapp/app/feature/splash/splash_page.dart';
+import 'package:br_thp_meubenapp/app/feature/sync/sync_page.dart';
 import 'package:br_thp_meubenapp/app/feature/work_plan/work_plan_page.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 
@@ -52,6 +53,7 @@ class MyApp extends StatelessWidget {
         '/classroom': (context) => const ClassroomPage(),
         '/meeting': (context) => const MeetingPage(),
         '/meeting_detail': (context) => const MeetingDetailPage(),
+        '/meeting_sync': (context) => const SyncPage(),
         '/api_examples': (context) => const ApiExamplesPage(),
       },
     );

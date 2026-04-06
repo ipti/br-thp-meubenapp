@@ -20,20 +20,21 @@ class MeetingStudentModel {
   final int id;
   final String name;
 
-  const MeetingStudentModel({
-    required this.id,
-    required this.name,
-  });
+  const MeetingStudentModel({required this.id, required this.name});
 }
 
 class MeetingArchiveModel {
   final int id;
   final String originalName;
   final String archiveUrl;
+  final bool isPendingSync;
+  final String? localPath;
 
   const MeetingArchiveModel({
     required this.id,
     required this.originalName,
     required this.archiveUrl,
+    this.isPendingSync = false,
+    this.localPath,
   });
 }

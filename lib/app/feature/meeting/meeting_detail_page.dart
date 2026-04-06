@@ -92,7 +92,9 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Faltas salvas com sucesso.')),
+        const SnackBar(
+          content: Text('Faltas salvas localmente e aguardando sincronização.'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -107,15 +109,6 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
   }
 
   Future<void> _uploadArchive(MeetingDetailModel detail) async {
-    if (!_isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fique online para enviar arquivos.'),
-        ),
-      );
-      return;
-    }
-
     final picker = ImagePicker();
     XFile? picked;
     try {
@@ -142,25 +135,29 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
       if (!mounted) return;
       if (created != null) {
         setState(() {
-          _archives.removeWhere((item) => item.id == created.id && created.id != 0);
+          _archives.removeWhere(
+            (item) => item.id == created.id && created.id != 0,
+          );
           _archives.add(created);
         });
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto enviada com sucesso.')),
+        const SnackBar(
+          content: Text('Arquivo salvo localmente e aguardando sincronização.'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao enviar foto: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
     } finally {
       if (mounted) setState(() => _uploadingArchive = false);
     }
   }
 
   Future<void> _deleteArchive(int archiveId) async {
-    if (!_isOnline) {
+    if (archiveId > 0 && !_isOnline) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Fique online para poder excluir o arquivo.'),
@@ -204,9 +201,9 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao excluir arquivo: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao excluir arquivo: $e')));
     }
   }
 
@@ -257,6 +254,15 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
+                Text(
+                  _isOnline
+                      ? 'Status de rede: online'
+                      : 'Status de rede: offline',
+                  style: TextStyle(
+                    color: _isOnline ? Colors.green : Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Expanded(
                   child: ListView(
                     children: [
@@ -298,17 +304,48 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.add_a_photo),
                           label: const Text('Adicionar foto'),
                         ),
                       ),
                       const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/meeting_sync'),
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Abrir fila de sincronização'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       if (_archives.isEmpty)
                         const Text('Sem arquivos para este encontro.'),
                       ..._archives.map((archive) {
-                        if (_isOnline) {
+                        if (archive.isPendingSync) {
+                          return Card(
+                            child: ListTile(
+                              leading: const Icon(
+                                Icons.schedule_send_outlined,
+                                color: Colors.orange,
+                              ),
+                              title: Text(archive.originalName),
+                              subtitle: const Text(
+                                'Arquivo pendente de sincronização.',
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _deleteArchive(archive.id),
+                              ),
+                            ),
+                          );
+                        }
+
+                        if (_isOnline && archive.archiveUrl.isNotEmpty) {
                           return Card(
                             child: ListTile(
                               leading: ClipRRect(
@@ -318,7 +355,7 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                                   width: 42,
                                   height: 42,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) {
+                                  errorBuilder: (context, error, stackTrace) {
                                     return const SizedBox(
                                       width: 42,
                                       height: 42,
@@ -331,7 +368,8 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                               trailing: archive.id > 0
                                   ? IconButton(
                                       icon: const Icon(Icons.delete_outline),
-                                      onPressed: () => _deleteArchive(archive.id),
+                                      onPressed: () =>
+                                          _deleteArchive(archive.id),
                                     )
                                   : null,
                             ),

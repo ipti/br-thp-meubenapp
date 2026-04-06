@@ -74,6 +74,15 @@ class _MeetingPageState extends State<MeetingPage> {
               iconLeft: Icons.add,
               text: 'Adicionar Encontro',
             ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/meeting_sync'),
+                icon: const Icon(Icons.sync),
+                label: const Text('Sincronizar pendências'),
+              ),
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: FutureBuilder<List<MeetingItemModel>>(

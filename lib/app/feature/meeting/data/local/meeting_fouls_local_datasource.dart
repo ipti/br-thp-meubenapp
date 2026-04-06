@@ -3,11 +3,12 @@ import 'package:sembast/sembast.dart';
 
 class MeetingFoulsLocalDatasource {
   MeetingFoulsLocalDatasource({LocalDatabase? localDatabase})
-      : _localDatabase = localDatabase ?? LocalDatabase.instance;
+    : _localDatabase = localDatabase ?? LocalDatabase.instance;
 
   final LocalDatabase _localDatabase;
-  final StoreRef<int, Map<String, Object?>> _store =
-      intMapStoreFactory.store('meeting_fouls');
+  final StoreRef<int, Map<String, Object?>> _store = intMapStoreFactory.store(
+    'fouls_offline',
+  );
 
   Future<Set<int>> getFoulsByMeeting(int meetingId) async {
     final db = await _localDatabase.database;
@@ -15,8 +16,7 @@ class MeetingFoulsLocalDatasource {
     if (data == null) return {};
     final raw = data['studentIds'];
     if (raw is List) {
-      return raw.map((e) => int.tryParse(e.toString()) ?? 0).toSet()
-        ..remove(0);
+      return raw.map((e) => int.tryParse(e.toString()) ?? 0).toSet()..remove(0);
     }
     return {};
   }
