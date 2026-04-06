@@ -5,6 +5,7 @@ class MeetingItemModel {
   final int classroomId;
   final int projectId;
   final int socialTechnologyId;
+  final DateTime createdAt;
 
   const MeetingItemModel({
     required this.id,
@@ -13,5 +14,6 @@ class MeetingItemModel {
     required this.classroomId,
     required this.projectId,
     required this.socialTechnologyId,
+    required this.createdAt,
   });
 }

@@ -102,8 +102,7 @@ class _WorkPlanPageState extends State<WorkPlanPage> {
                 return CardComponents(
                   title: item.name.isEmpty ? 'Projeto' : item.name,
                   image: 'assets/image/logo_workplan.png',
-                  subtitle:
-                      'Aprovação: ${item.approvalPercentage.toStringAsFixed(0)}%',
+                  subtitle: '',
                   onTap: () {
                     Navigator.pushNamed(
                       context,

@@ -138,7 +138,7 @@ class MobileStoreMeetingModel {
   final int id;
   final String name;
   final DateTime createdAt;
-  final int fouls;
+  final dynamic fouls;
   final MobileStoreClassroomInMeetingModel? classroom;
   final List<MobileStoreMeetingArchiveModel> meetingArchives;
 
@@ -157,7 +157,7 @@ class MobileStoreMeetingModel {
       id: MobileStoreSnapshotModel._toInt(json['id']),
       name: json['name']?.toString() ?? '',
       createdAt: MobileStoreSnapshotModel._toDate(json['createdAt']),
-      fouls: MobileStoreSnapshotModel._toInt(json['fouls']),
+      fouls: json['fouls'],
       classroom: classroomJson is Map<String, dynamic>
           ? MobileStoreClassroomInMeetingModel.fromJson(classroomJson)
           : null,

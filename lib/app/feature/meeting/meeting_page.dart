@@ -1,6 +1,8 @@
+import 'package:br_thp_meubenapp/app/core/components/button/button_default.dart';
 import 'package:br_thp_meubenapp/app/core/components/card/card_components.dart';
 import 'package:br_thp_meubenapp/app/core/components/page_default/page_default.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_client.dart';
+import 'package:br_thp_meubenapp/app/core/utils/formtDate.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_item_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting_repository.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/meeting_repository.dart';
@@ -15,6 +17,7 @@ class MeetingPage extends StatefulWidget {
 
 class _MeetingPageState extends State<MeetingPage> {
   late final IMeetingRepository _repository;
+
   Future<List<MeetingItemModel>>? _futureMeetings;
   String? _stId;
   String? _projectId;
@@ -66,9 +69,10 @@ class _MeetingPageState extends State<MeetingPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            ElevatedButton(
+            ButtonDefault(
               onPressed: () {},
-              child: const Text('Adicionar Encontro'),
+              iconLeft: Icons.add,
+              text: 'Adicionar Encontro',
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -80,14 +84,18 @@ class _MeetingPageState extends State<MeetingPage> {
                   }
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text('Erro ao carregar encontros: ${snapshot.error}'),
+                      child: Text(
+                        'Erro ao carregar encontros: ${snapshot.error}',
+                      ),
                     );
                   }
 
                   final meetings = snapshot.data ?? const [];
                   if (meetings.isEmpty) {
                     return const Center(
-                      child: Text('Nenhum encontro encontrado para esta turma.'),
+                      child: Text(
+                        'Nenhum encontro encontrado para esta turma.',
+                      ),
                     );
                   }
 
@@ -97,8 +105,22 @@ class _MeetingPageState extends State<MeetingPage> {
                       final item = meetings[index];
                       return CardComponents(
                         title: item.name,
-                        subtitle: 'Faltas: ${item.fouls}',
+                        subtitle:
+                            'Data: ${FormtDate.formatDate(item.createdAt)} • Faltas: ${item.fouls}',
                         image: 'assets/image/logo_ts.png',
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/meeting_detail',
+                            arguments: {
+                              'stId': _stId,
+                              'projectId': _projectId,
+                              'classroomId': _classroomId,
+                              'meetingId': item.id.toString(),
+                              'year': _year,
+                            },
+                          );
+                        },
                       );
                     },
                   );

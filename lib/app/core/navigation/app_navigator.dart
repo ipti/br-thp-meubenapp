@@ -10,6 +10,6 @@ class AppNavigator {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
-    navigator.pushNamedAndRemoveUntil('/', (route) => false);
+    navigator.pushNamedAndRemoveUntil('/login', (route) => false);
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:br_thp_meubenapp/app/core/components/button/button_default.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_client.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_exception.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/i_token_storage.dart';
@@ -123,28 +124,10 @@ class _AuthPageState extends State<AuthPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                onPressed: _isLoading ? null : _login,
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : const Text('Entrar'),
+              ButtonDefault(
+                onPressed: _login,
+                text: 'Entrar',
+                isLoading: _isLoading,
               ),
             ],
           ),
