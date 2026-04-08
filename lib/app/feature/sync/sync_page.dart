@@ -140,10 +140,32 @@ class _SyncPageState extends State<SyncPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildCounterChip('Pendentes', pending),
-                      _buildCounterChip('Falharam', failed),
-                      _buildCounterChip('Sincronizados', synced),
-                      _buildCounterChip('Total', _items.length),
+                      _buildCounterChip(
+                        'Pendentes',
+                        pending,
+                        backgroundColor: Colors.orange.withValues(alpha: 0.18),
+                        textColor: Colors.orange.shade900,
+                      ),
+                      _buildCounterChip(
+                        'Falharam',
+                        failed,
+                        backgroundColor: Colors.red.withValues(alpha: 0.14),
+                        textColor: Colors.red.shade800,
+                      ),
+                      _buildCounterChip(
+                        'Sincronizados',
+                        synced,
+                        backgroundColor: Colors.green.withValues(alpha: 0.16),
+                        textColor: Colors.green.shade800,
+                      ),
+                      _buildCounterChip(
+                        'Total',
+                        _items.length,
+                        backgroundColor: Colors.blueGrey.withValues(
+                          alpha: 0.14,
+                        ),
+                        textColor: Colors.blueGrey.shade800,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -163,12 +185,32 @@ class _SyncPageState extends State<SyncPage> {
                             itemCount: _items.length,
                             itemBuilder: (context, index) {
                               final item = _items[index];
+                              final statusColor = _statusColor(item.status);
                               return Card(
                                 child: ListTile(
                                   leading: Icon(_typeIcon(item.type)),
                                   title: Text(item.description),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _statusLabel(item.status),
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
                                   subtitle: Text(
-                                    'Status: ${_statusLabel(item.status)}\n'
                                     'Criado por: ${item.createdBy}\n'
                                     'Em: ${_formatDate(item.createdAt)}'
                                     '${item.errorMessage == null ? '' : '\nErro: ${item.errorMessage}'}',
@@ -185,8 +227,20 @@ class _SyncPageState extends State<SyncPage> {
     );
   }
 
-  Widget _buildCounterChip(String label, int value) {
-    return Chip(label: Text('$label: $value'));
+  Widget _buildCounterChip(
+    String label,
+    int value, {
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Chip(
+      backgroundColor: backgroundColor,
+      side: BorderSide(color: textColor.withValues(alpha: 0.25)),
+      label: Text(
+        '$label: $value',
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+      ),
+    );
   }
 
   IconData _typeIcon(SyncQueueType type) {
@@ -210,6 +264,19 @@ class _SyncPageState extends State<SyncPage> {
         return 'Sincronizado';
       case SyncQueueStatus.failed:
         return 'Falhou';
+    }
+  }
+
+  Color _statusColor(SyncQueueStatus status) {
+    switch (status) {
+      case SyncQueueStatus.pending:
+        return Colors.orange.shade800;
+      case SyncQueueStatus.processing:
+        return Colors.blue.shade800;
+      case SyncQueueStatus.synced:
+        return Colors.green.shade800;
+      case SyncQueueStatus.failed:
+        return Colors.red.shade700;
     }
   }
 

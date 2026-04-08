@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:br_thp_meubenapp/app/core/components/button/button_default.dart';
@@ -5,10 +6,12 @@ import 'package:br_thp_meubenapp/app/core/network/api_client.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_exception.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/i_token_storage.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/token_storage.dart';
+import 'package:br_thp_meubenapp/app/core/storage/user/i_user_storage.dart';
+import 'package:br_thp_meubenapp/app/core/storage/user/user_storage.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
-
 import 'package:br_thp_meubenapp/app/feature/auth/data/repositories/auth_repository.dart';
 import 'package:br_thp_meubenapp/app/feature/auth/data/repositories/i_auth_repository.dart';
+import 'package:br_thp_meubenapp/app/feature/profile/data/profile_endpoints.dart';
 import 'package:flutter/material.dart';
 
 class AuthPage extends StatefulWidget {
@@ -23,7 +26,9 @@ class _AuthPageState extends State<AuthPage> {
   late final TextEditingController _passwordController;
   late final IAuthRepository _authRepository;
   late final ITokenStorage _tokenStorage;
+  late final IUserStorage _userStorage;
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -32,6 +37,7 @@ class _AuthPageState extends State<AuthPage> {
     _passwordController = TextEditingController();
     _authRepository = AuthRepository(apiClient: ApiClient());
     _tokenStorage = TokenStorage();
+    _userStorage = UserStorage();
   }
 
   @override
@@ -60,6 +66,7 @@ class _AuthPageState extends State<AuthPage> {
         password: password,
       );
       await _tokenStorage.saveToken(token);
+      await _cacheUserProfile();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -85,6 +92,25 @@ class _AuthPageState extends State<AuthPage> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _cacheUserProfile() async {
+    try {
+      final response = await ApiClient().get(
+        ProfileEndpoints.oneToken,
+        withAuthToken: true,
+      );
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        await _userStorage.saveUser(jsonEncode(data));
+      }
+    } catch (e, stackTrace) {
+      log(
+        'Falha ao salvar cache local do perfil no login',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -115,13 +141,26 @@ class _AuthPageState extends State<AuthPage> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Senha',
-                  suffixIcon: Icon(Icons.visibility),
-                  suffixIconColor: AppColors.primary,
-                ),
+                obscureText: _obscurePassword,
+                decoration:
+                    const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Senha',
+                    ).copyWith(
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        color: AppColors.primary,
+                      ),
+                    ),
               ),
               const SizedBox(height: 16),
               ButtonDefault(

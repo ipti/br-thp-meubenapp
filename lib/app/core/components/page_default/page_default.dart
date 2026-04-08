@@ -1,6 +1,4 @@
-import 'dart:io';
-
-import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
+import 'package:br_thp_meubenapp/app/feature/sync/data/local/sync_queue_local_datasource.dart';
 import 'package:flutter/material.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 
@@ -15,23 +13,12 @@ class PageDefault extends StatefulWidget {
 }
 
 class _PageDefaultState extends State<PageDefault> {
-  bool _isOnline = true;
+  late final SyncQueueLocalDatasource _syncQueueLocalDatasource;
 
   @override
   void initState() {
     super.initState();
-    _checkOnlineStatus();
-  }
-
-  Future<void> _checkOnlineStatus() async {
-    try {
-      final result = await InternetAddress.lookup('one.one.one.one');
-      if (!mounted) return;
-      setState(() => _isOnline = result.isNotEmpty);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isOnline = false);
-    }
+    _syncQueueLocalDatasource = SyncQueueLocalDatasource();
   }
 
   @override
@@ -46,10 +33,58 @@ class _PageDefaultState extends State<PageDefault> {
         title: Image.asset('assets/image/logo.png', height: 32),
         centerTitle: true,
         actions: [
+          StreamBuilder<int>(
+            stream: _syncQueueLocalDatasource.watchPendingCount(),
+            initialData: 0,
+            builder: (context, snapshot) {
+              final pendingCount = snapshot.data ?? 0;
+              return IconButton(
+                tooltip: pendingCount > 0
+                    ? '$pendingCount sincronizações pendentes'
+                    : 'Sincronização',
+                onPressed: () async {
+                  await Navigator.pushNamed(context, '/meeting_sync');
+                },
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.sync),
+                    if (pendingCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 18),
+                          child: Text(
+                            pendingCount > 99 ? '99+' : '$pendingCount',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
           IconButton(
-            tooltip: _isOnline ? 'Sair' : 'Logout indisponível offline',
-            icon: const Icon(Icons.logout),
-            onPressed: _isOnline ? AppNavigator.redirectToLogin : null,
+            tooltip: 'Perfil',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () async {
+              await Navigator.pushNamed(context, '/profile');
+            },
           ),
         ],
       ),

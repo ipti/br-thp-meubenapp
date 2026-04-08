@@ -1,4 +1,3 @@
-import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 

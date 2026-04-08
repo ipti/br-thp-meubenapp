@@ -6,6 +6,7 @@ import 'package:br_thp_meubenapp/app/feature/social_tecnology/data/models/social
 import 'package:br_thp_meubenapp/app/feature/social_tecnology/data/repositories/i_social_tecnology_repository.dart';
 import 'package:br_thp_meubenapp/app/feature/social_tecnology/data/repositories/social_tecnology_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SocialTecnollogyPage extends StatefulWidget {
   const SocialTecnollogyPage({super.key, required this.title});
@@ -17,6 +18,7 @@ class SocialTecnollogyPage extends StatefulWidget {
 }
 
 class _SocialTecnollogyPageState extends State<SocialTecnollogyPage> {
+  static const String _selectedYearKey = 'social_technology_selected_year';
   late final ISocialTecnollogyRepository _repository;
   late Future<List<SocialTechnologyModel>> _futureSocialTechnologies;
   late int _selectedYear;
@@ -32,6 +34,31 @@ class _SocialTecnollogyPageState extends State<SocialTecnollogyPage> {
     _futureSocialTechnologies = _repository.getSocialTechnologyUser(
       year: _selectedYear,
     );
+    _restoreSelectedYear();
+  }
+
+  Future<void> _restoreSelectedYear() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedYear = prefs.getInt(_selectedYearKey);
+    if (savedYear == null || !mounted) return;
+
+    if (!_yearOptions.contains(savedYear)) {
+      _yearOptions = [..._yearOptions, savedYear]..sort();
+    }
+
+    if (savedYear == _selectedYear) return;
+
+    setState(() {
+      _selectedYear = savedYear;
+      _futureSocialTechnologies = _repository.getSocialTechnologyUser(
+        year: _selectedYear,
+      );
+    });
+  }
+
+  Future<void> _persistSelectedYear(int year) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_selectedYearKey, year);
   }
 
   @override
@@ -61,11 +88,10 @@ class _SocialTecnollogyPageState extends State<SocialTecnollogyPage> {
                     if (value == null) return;
                     setState(() {
                       _selectedYear = value;
-                      _futureSocialTechnologies =
-                          _repository.getSocialTechnologyUser(
-                        year: _selectedYear,
-                      );
+                      _futureSocialTechnologies = _repository
+                          .getSocialTechnologyUser(year: _selectedYear);
                     });
+                    _persistSelectedYear(value);
                   },
                 ),
               ],
@@ -76,12 +102,23 @@ class _SocialTecnollogyPageState extends State<SocialTecnollogyPage> {
                 future: _futureSocialTechnologies,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 12),
+                          Text('Sincronizando dados'),
+                        ],
+                      ),
+                    );
                   }
 
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text('Erro ao carregar tecnologias: ${snapshot.error}'),
+                      child: Text(
+                        'Erro ao carregar tecnologias: ${snapshot.error}',
+                      ),
                     );
                   }
 

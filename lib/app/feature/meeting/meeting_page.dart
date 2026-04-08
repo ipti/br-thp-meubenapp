@@ -4,6 +4,7 @@ import 'package:br_thp_meubenapp/app/core/components/page_default/page_default.d
 import 'package:br_thp_meubenapp/app/core/network/api_client.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_exception.dart';
 import 'package:br_thp_meubenapp/app/core/utils/formtDate.dart';
+import 'package:br_thp_meubenapp/app/core/utils/translateRole.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_create_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_item_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting_repository.dart';
@@ -214,7 +215,9 @@ class _MeetingPageState extends State<MeetingPage> {
                                       dense: true,
                                       value: selected,
                                       title: Text(user.name),
-                                      subtitle: Text(_translateRole(user.role)),
+                                      subtitle: Text(
+                                        TranslateRole.translateRole(user.role),
+                                      ),
                                       onChanged: (checked) {
                                         setModalState(() {
                                           if (checked == true) {
@@ -280,21 +283,6 @@ class _MeetingPageState extends State<MeetingPage> {
         );
       },
     );
-  }
-
-  String _translateRole(String role) {
-    switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return 'Administrador';
-      case 'USER':
-        return 'Usuário';
-      case 'REAPPLICATORS':
-        return 'Reaplicador';
-      case 'COORDINATORS':
-        return 'Coordenador';
-      default:
-        return role;
-    }
   }
 
   Future<bool> _checkOnlineStatus() async {

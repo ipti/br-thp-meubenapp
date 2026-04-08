@@ -35,7 +35,7 @@ class SyncQueueLocalDatasource {
     final db = await _localDatabase.database;
     final snapshots = await _store.find(
       db,
-      finder: Finder(sortOrders: [SortOrder('createdAt')]),
+      finder: Finder(sortOrders: [SortOrder('createdAt', false)]),
     );
     return snapshots.map(_fromSnapshot).toList();
   }
@@ -59,6 +59,36 @@ class SyncQueueLocalDatasource {
       ),
     );
     return snapshots.map(_fromSnapshot).toList();
+  }
+
+  Future<int> getPendingCount() async {
+    final db = await _localDatabase.database;
+    final snapshots = await _store.find(
+      db,
+      finder: Finder(
+        filter: Filter.equals(
+          'status',
+          SyncQueueItemModel.serializeStatus(SyncQueueStatus.pending),
+        ),
+      ),
+    );
+    return snapshots.length;
+  }
+
+  Stream<int> watchPendingCount() async* {
+    final db = await _localDatabase.database;
+    final snapshotsStream = _store
+        .query(
+          finder: Finder(
+            filter: Filter.equals(
+              'status',
+              SyncQueueItemModel.serializeStatus(SyncQueueStatus.pending),
+            ),
+          ),
+        )
+        .onSnapshots(db);
+
+    yield* snapshotsStream.map((snapshots) => snapshots.length).distinct();
   }
 
   Future<void> markAsProcessing(int localId) {
