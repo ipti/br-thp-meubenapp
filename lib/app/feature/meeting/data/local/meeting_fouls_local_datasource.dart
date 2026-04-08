@@ -31,4 +31,9 @@ class MeetingFoulsLocalDatasource {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  Future<void> clearFoulsByMeeting(int meetingId) async {
+    final db = await _localDatabase.database;
+    await _store.record(meetingId).delete(db);
+  }
 }

@@ -120,6 +120,29 @@ class SyncQueueLocalDatasource {
     }
   }
 
+  Future<void> removeByTypeAndMeeting({
+    required SyncQueueType type,
+    required int meetingId,
+  }) async {
+    final db = await _localDatabase.database;
+    final snapshots = await _store.find(
+      db,
+      finder: Finder(
+        filter: Filter.equals('type', SyncQueueItemModel.serializeType(type)),
+      ),
+    );
+
+    for (final snapshot in snapshots) {
+      final payload = snapshot.value['payload'];
+      final meetingInPayload = int.tryParse(
+        (payload is Map ? payload['meetingId'] : null)?.toString() ?? '',
+      );
+      if (meetingInPayload == meetingId) {
+        await _store.record(snapshot.key).delete(db);
+      }
+    }
+  }
+
   Future<void> _updateStatus(
     int localId, {
     required SyncQueueStatus status,

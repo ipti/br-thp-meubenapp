@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:br_thp_meubenapp/app/core/config/api_config.dart';
 import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
@@ -11,6 +12,9 @@ import 'package:br_thp_meubenapp/app/feature/meeting/data/archive_endpoints.dart
 import 'package:br_thp_meubenapp/app/feature/meeting/data/fouls_endpoints.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/local/meeting_archives_offline_datasource.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/local/meeting_fouls_local_datasource.dart';
+import 'package:br_thp_meubenapp/app/feature/meeting/data/local/meeting_offline_datasource.dart';
+import 'package:br_thp_meubenapp/app/feature/meeting/data/meeting_endpoints.dart';
+import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_create_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_detail_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_item_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting_repository.dart';
@@ -27,6 +31,7 @@ class MeetingRepository implements IMeetingRepository {
       ),
       _foulsLocalDatasource = MeetingFoulsLocalDatasource(),
       _archivesOfflineDatasource = MeetingArchivesOfflineDatasource(),
+      _meetingOfflineDatasource = MeetingOfflineDatasource(),
       _syncQueueLocalDatasource = SyncQueueLocalDatasource(),
       _tokenStorage = TokenStorage();
 
@@ -34,8 +39,10 @@ class MeetingRepository implements IMeetingRepository {
   final MobileStoreRepository _mobileStoreRepository;
   final MeetingFoulsLocalDatasource _foulsLocalDatasource;
   final MeetingArchivesOfflineDatasource _archivesOfflineDatasource;
+  final MeetingOfflineDatasource _meetingOfflineDatasource;
   final SyncQueueLocalDatasource _syncQueueLocalDatasource;
   final TokenStorage _tokenStorage;
+  final Random _random = Random();
 
   @override
   Future<List<MeetingItemModel>> getMeetingsByClassroom({
@@ -60,7 +67,7 @@ class MeetingRepository implements IMeetingRepository {
     );
     if (classroom.isEmpty) return const [];
 
-    return classroom.first.meeting
+    final apiMeetings = classroom.first.meeting
         .map(
           (meeting) => MeetingItemModel(
             id: meeting.id,
@@ -73,6 +80,26 @@ class MeetingRepository implements IMeetingRepository {
           ),
         )
         .toList();
+
+    final pendingMeetings = await _meetingOfflineDatasource
+        .getPendingByClassroom(classroom.first.id);
+
+    final pendingItems = pendingMeetings
+        .map(
+          (meeting) => MeetingItemModel(
+            id: -meeting.localId,
+            name: '${meeting.name} (pendente)',
+            fouls: 0,
+            isPendingSync: true,
+            classroomId: classroom.first.id,
+            projectId: project.first.id,
+            socialTechnologyId: socialTechnology.first.id,
+            createdAt: meeting.meetingDate,
+          ),
+        )
+        .toList();
+
+    return [...pendingItems, ...apiMeetings];
   }
 
   @override
@@ -83,6 +110,17 @@ class MeetingRepository implements IMeetingRepository {
     required String classroomId,
     required String meetingId,
   }) async {
+    final parsedMeetingId = int.tryParse(meetingId);
+    if (parsedMeetingId != null && parsedMeetingId < 0) {
+      return _getPendingMeetingDetail(
+        year: year,
+        socialTechnologyId: socialTechnologyId,
+        projectId: projectId,
+        classroomId: classroomId,
+        meetingLocalId: parsedMeetingId.abs(),
+      );
+    }
+
     final snapshot = await _mobileStoreRepository.getSnapshot(year: year);
     final socialTechnology = snapshot.where(
       (item) => item.id.toString() == socialTechnologyId,
@@ -105,7 +143,7 @@ class MeetingRepository implements IMeetingRepository {
     if (meeting.isEmpty) return null;
 
     final currentMeeting = meeting.first;
-    final students = (currentMeeting.classroom?.registerClassroom ?? const [])
+    final students = (classroom.first.registerClassroom)
         .map(
           (item) => MeetingStudentModel(
             id: item.registration.id,
@@ -155,6 +193,72 @@ class MeetingRepository implements IMeetingRepository {
     );
   }
 
+  Future<MeetingDetailModel?> _getPendingMeetingDetail({
+    required int year,
+    required String socialTechnologyId,
+    required String projectId,
+    required String classroomId,
+    required int meetingLocalId,
+  }) async {
+    final snapshot = await _mobileStoreRepository.getSnapshot(year: year);
+    final socialTechnology = snapshot.where(
+      (item) => item.id.toString() == socialTechnologyId,
+    );
+    if (socialTechnology.isEmpty) return null;
+
+    final project = socialTechnology.first.project.where(
+      (item) => item.id.toString() == projectId,
+    );
+    if (project.isEmpty) return null;
+
+    final classroom = project.first.classrooms.where(
+      (item) => item.id.toString() == classroomId,
+    );
+    if (classroom.isEmpty) return null;
+
+    final pendingMeeting = await _meetingOfflineDatasource.getByLocalId(
+      meetingLocalId,
+    );
+    if (pendingMeeting == null) return null;
+
+    final localMeetingId = -meetingLocalId;
+    final students = classroom.first.registerClassroom
+        .map(
+          (item) => MeetingStudentModel(
+            id: item.registration.id,
+            name: item.registration.name,
+          ),
+        )
+        .toList();
+
+    final localFouls = await _foulsLocalDatasource.getFoulsByMeeting(
+      localMeetingId,
+    );
+    final localArchives = await _archivesOfflineDatasource.getPendingByMeeting(
+      localMeetingId,
+    );
+    final pendingArchives = localArchives
+        .map(
+          (archive) => MeetingArchiveModel(
+            id: -archive.localId,
+            originalName: archive.originalName,
+            archiveUrl: '',
+            isPendingSync: true,
+            localPath: archive.filePath,
+          ),
+        )
+        .toList();
+
+    return MeetingDetailModel(
+      id: localMeetingId,
+      name: '${pendingMeeting.name} (pendente)',
+      createdAt: pendingMeeting.meetingDate,
+      students: students,
+      absentStudentIds: localFouls,
+      archives: pendingArchives,
+    );
+  }
+
   @override
   Future<void> saveMeetingFouls({
     required int meetingId,
@@ -166,6 +270,24 @@ class MeetingRepository implements IMeetingRepository {
       meetingId: meetingId,
       studentIds: absentStudentIds,
     );
+
+    final online = await _isOnline();
+    if (online && meetingId > 0) {
+      try {
+        await _apiClient.post(
+          FoulsEndpoints.foulsBff,
+          withAuthToken: true,
+          body: {'meeting': meetingId, 'registration': allFouls},
+        );
+        await _syncQueueLocalDatasource.removeByTypeAndMeeting(
+          type: SyncQueueType.fouls,
+          meetingId: meetingId,
+        );
+        return;
+      } on ApiException catch (e) {
+        if (_isUnauthorized(e.statusCode)) rethrow;
+      } catch (_) {}
+    }
 
     await _syncQueueLocalDatasource.removePendingByTypeAndMeeting(
       type: SyncQueueType.fouls,
@@ -185,6 +307,18 @@ class MeetingRepository implements IMeetingRepository {
     required int meetingId,
     required File imageFile,
   }) async {
+    final online = await _isOnline();
+    if (online && meetingId > 0) {
+      try {
+        return await _uploadArchiveOnlineDirect(
+          meetingId: meetingId,
+          imageFile: imageFile,
+        );
+      } on ApiException catch (e) {
+        if (_isUnauthorized(e.statusCode)) rethrow;
+      } catch (_) {}
+    }
+
     final originalName = imageFile.path.split(Platform.pathSeparator).last;
     final localArchiveId = await _archivesOfflineDatasource.addPendingArchive(
       meetingId: meetingId,
@@ -206,6 +340,63 @@ class MeetingRepository implements IMeetingRepository {
       isPendingSync: true,
       localPath: imageFile.path,
     );
+  }
+
+  Future<MeetingArchiveModel?> _uploadArchiveOnlineDirect({
+    required int meetingId,
+    required File imageFile,
+  }) async {
+    final token = await _tokenStorage.getToken();
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}${ArchiveEndpoints.uploadByMeetingId(meetingId)}',
+    );
+    final request = http.MultipartRequest('POST', uri);
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.files.add(
+      await http.MultipartFile.fromPath('file', imageFile.path),
+    );
+
+    final streamedResponse = await request.send();
+    final responseBody = await streamedResponse.stream.bytesToString();
+
+    if (_isUnauthorized(streamedResponse.statusCode)) {
+      await _handleUnauthorized();
+      throw const ApiException(
+        'Sessao expirada. Faca login novamente.',
+        statusCode: 401,
+      );
+    }
+
+    if (streamedResponse.statusCode < 200 ||
+        streamedResponse.statusCode >= 300) {
+      throw ApiException(
+        'Falha ao enviar arquivo (${streamedResponse.statusCode}).',
+        statusCode: streamedResponse.statusCode,
+      );
+    }
+
+    if (responseBody.isEmpty) {
+      return MeetingArchiveModel(
+        id: 0,
+        originalName: imageFile.path.split(Platform.pathSeparator).last,
+        archiveUrl: '',
+      );
+    }
+
+    final decoded = jsonDecode(responseBody);
+    if (decoded is Map<String, dynamic>) {
+      return MeetingArchiveModel(
+        id: int.tryParse(decoded['id']?.toString() ?? '') ?? 0,
+        originalName:
+            decoded['original_name']?.toString() ??
+            imageFile.path.split(Platform.pathSeparator).last,
+        archiveUrl: decoded['archive_url']?.toString() ?? '',
+      );
+    }
+
+    return null;
   }
 
   @override
@@ -240,6 +431,74 @@ class MeetingRepository implements IMeetingRepository {
   }
 
   @override
+  Future<List<MeetingAssigneeModel>> getMeetingAssignableUsers() async {
+    final response = await _apiClient.get(
+      MeetingEndpoints.usersBff,
+      withAuthToken: true,
+    );
+
+    final items = _extractListMaps(response.data);
+    final users = items
+        .map((item) {
+          final id = int.tryParse(item['id']?.toString() ?? '');
+          if (id == null) return null;
+          return MeetingAssigneeModel(
+            id: id,
+            name: item['name']?.toString() ?? 'Usuário',
+            role: item['role']?.toString() ?? '',
+            active: item['active'] == true,
+          );
+        })
+        .whereType<MeetingAssigneeModel>()
+        .where((user) => user.active)
+        .toList();
+
+    users.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return users;
+  }
+
+  @override
+  Future<MeetingCreateResult> createMeeting({
+    required MeetingCreateRequestModel request,
+  }) async {
+    final requestWithId =
+        request.requestId == null || request.requestId!.isEmpty
+        ? MeetingCreateRequestModel(
+            requestId: _generateRequestId(),
+            name: request.name,
+            meetingDate: request.meetingDate,
+            workload: request.workload,
+            classroomId: request.classroomId,
+            theme: request.theme,
+            users: request.users,
+          )
+        : request;
+
+    final online = await _isOnline();
+
+    if (online) {
+      try {
+        await _createMeetingOnline(requestWithId);
+        return const MeetingCreateResult(
+          createdOnline: true,
+          queuedOffline: false,
+          message: 'Encontro criado com sucesso.',
+        );
+      } on ApiException catch (e) {
+        if (_isUnauthorized(e.statusCode)) rethrow;
+        if (e.statusCode != null && e.statusCode! < 500) rethrow;
+      }
+    }
+
+    await _enqueueMeetingCreate(requestWithId);
+    return const MeetingCreateResult(
+      createdOnline: false,
+      queuedOffline: true,
+      message: 'Encontro salvo localmente e aguardando sincronização.',
+    );
+  }
+
+  @override
   Future<List<SyncQueueItemModel>> getSyncQueueItems() {
     return _syncQueueLocalDatasource.getAll();
   }
@@ -268,10 +527,16 @@ class MeetingRepository implements IMeetingRepository {
       await _syncQueueLocalDatasource.markAsProcessing(item.localId);
 
       try {
-        if (item.type == SyncQueueType.fouls) {
-          await _syncFouls(item);
-        } else {
-          await _syncArchive(item);
+        switch (item.type) {
+          case SyncQueueType.fouls:
+            await _syncFouls(item);
+            break;
+          case SyncQueueType.archives:
+            await _syncArchive(item);
+            break;
+          case SyncQueueType.meetingCreate:
+            await _syncMeetingCreate(item);
+            break;
         }
 
         await _syncQueueLocalDatasource.markAsSynced(item.localId);
@@ -314,6 +579,10 @@ class MeetingRepository implements IMeetingRepository {
     if (meetingId == null) {
       throw const ApiException('meetingId invalido na fila de sync.');
     }
+    if (meetingId < 0) {
+      // Meeting ainda não sincronizado; o pacote será enviado em meetingCreate.
+      return;
+    }
 
     await _apiClient.post(
       FoulsEndpoints.foulsBff,
@@ -335,6 +604,10 @@ class MeetingRepository implements IMeetingRepository {
     if (meetingId == null || archiveLocalId == null) {
       throw const ApiException('Payload invalido na fila de arquivos.');
     }
+    if (meetingId < 0) {
+      // Meeting ainda não sincronizado; o pacote será enviado em meetingCreate.
+      return;
+    }
 
     final archive = await _archivesOfflineDatasource.getByLocalId(
       archiveLocalId,
@@ -352,6 +625,112 @@ class MeetingRepository implements IMeetingRepository {
 
     await _uploadArchiveOnline(meetingId: meetingId, imageFile: file);
     await _archivesOfflineDatasource.deleteByLocalId(archiveLocalId);
+  }
+
+  Future<void> _syncMeetingCreate(SyncQueueItemModel item) async {
+    final meetingOfflineId = int.tryParse(
+      item.payload['meetingOfflineId']?.toString() ?? '',
+    );
+    if (meetingOfflineId == null) {
+      throw const ApiException('meetingOfflineId inválido na fila.');
+    }
+
+    final pendingMeeting = await _meetingOfflineDatasource.getByLocalId(
+      meetingOfflineId,
+    );
+    if (pendingMeeting == null) return;
+    final localMeetingId = -meetingOfflineId;
+
+    await _syncOfflineMeetingBundle(
+      pendingMeeting: pendingMeeting,
+      localMeetingId: localMeetingId,
+    );
+
+    await _meetingOfflineDatasource.deleteByLocalId(meetingOfflineId);
+    await _foulsLocalDatasource.clearFoulsByMeeting(localMeetingId);
+    await _archivesOfflineDatasource.deleteByMeetingId(localMeetingId);
+    await _syncQueueLocalDatasource.removeByTypeAndMeeting(
+      type: SyncQueueType.fouls,
+      meetingId: localMeetingId,
+    );
+    await _syncQueueLocalDatasource.removeByTypeAndMeeting(
+      type: SyncQueueType.archives,
+      meetingId: localMeetingId,
+    );
+  }
+
+  Future<void> _syncOfflineMeetingBundle({
+    required MeetingOfflineItem pendingMeeting,
+    required int localMeetingId,
+  }) async {
+    final fouls = await _foulsLocalDatasource.getFoulsByMeeting(localMeetingId);
+    final archives = await _archivesOfflineDatasource.getPendingByMeeting(
+      localMeetingId,
+    );
+
+    final requestModel = pendingMeeting.toRequestModel();
+    final payload = {
+      'requestId': requestModel.requestId ?? _generateRequestId(),
+      'source': 'OFFLINE_SYNC',
+      'meeting': requestModel.toJson(),
+      'fouls': fouls.toList()..sort(),
+    };
+
+    final token = await _tokenStorage.getToken();
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}${MeetingEndpoints.meetingBffSyncOffline}',
+    );
+    final request = http.MultipartRequest('POST', uri);
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.fields['payload'] = jsonEncode(payload);
+
+    for (final archive in archives) {
+      final file = File(archive.filePath);
+      if (!await file.exists()) continue;
+      request.files.add(await http.MultipartFile.fromPath('files', file.path));
+    }
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    if (_isUnauthorized(response.statusCode)) {
+      await _handleUnauthorized();
+      throw const ApiException(
+        'Sessao expirada. Faca login novamente.',
+        statusCode: 401,
+      );
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        'Falha ao sincronizar pacote offline (${response.statusCode}). $responseBody',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> _createMeetingOnline(MeetingCreateRequestModel request) async {
+    await _apiClient.post(
+      MeetingEndpoints.meeting,
+      withAuthToken: true,
+      body: request.toJson(),
+    );
+  }
+
+  Future<void> _enqueueMeetingCreate(MeetingCreateRequestModel request) async {
+    final meetingOfflineId = await _meetingOfflineDatasource.addPendingMeeting(
+      request: request,
+    );
+    final localMeetingId = -meetingOfflineId;
+    await _syncQueueLocalDatasource.enqueue(
+      type: SyncQueueType.meetingCreate,
+      payload: {
+        'meetingOfflineId': meetingOfflineId,
+        'meetingId': localMeetingId,
+      },
+      description: 'Sincronizar criação do encontro "${request.name}"',
+      createdBy: await _resolveCurrentUser(),
+    );
   }
 
   Future<void> _uploadArchiveOnline({
@@ -435,6 +814,32 @@ class MeetingRepository implements IMeetingRepository {
         .map((item) => int.tryParse(item.toString()))
         .whereType<int>()
         .toList();
+  }
+
+  List<Map<String, dynamic>> _extractListMaps(dynamic data) {
+    if (data is List) {
+      return data.whereType<Map<String, dynamic>>().toList();
+    }
+    if (data is Map<String, dynamic>) {
+      final content = data['content'] ?? data['items'] ?? data['data'];
+      if (content is List) {
+        return content.whereType<Map<String, dynamic>>().toList();
+      }
+      return [data];
+    }
+    return const [];
+  }
+
+  String _generateRequestId() {
+    String block(int length) {
+      final chars = 'abcdef0123456789';
+      return List.generate(
+        length,
+        (_) => chars[_random.nextInt(chars.length)],
+      ).join();
+    }
+
+    return '${block(8)}-${block(4)}-4${block(3)}-a${block(3)}-${block(12)}';
   }
 
   Future<String> _resolveCurrentUser() async {

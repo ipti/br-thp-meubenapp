@@ -92,9 +92,7 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Faltas salvas localmente e aguardando sincronização.'),
-        ),
+        const SnackBar(content: Text('Faltas salvas com sucesso.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -110,9 +108,12 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
 
   Future<void> _uploadArchive(MeetingDetailModel detail) async {
     final picker = ImagePicker();
+    final imageSource = await _showImageSourcePicker();
+    if (imageSource == null) return;
+
     XFile? picked;
     try {
-      picked = await picker.pickImage(source: ImageSource.gallery);
+      picked = await picker.pickImage(source: imageSource);
     } on MissingPluginException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,8 +143,12 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
         });
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Arquivo salvo localmente e aguardando sincronização.'),
+        SnackBar(
+          content: Text(
+            created?.isPendingSync == true
+                ? 'Arquivo salvo localmente e aguardando sincronização.'
+                : 'Arquivo enviado com sucesso.',
+          ),
         ),
       );
     } catch (e) {
@@ -154,6 +159,31 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
     } finally {
       if (mounted) setState(() => _uploadingArchive = false);
     }
+  }
+
+  Future<ImageSource?> _showImageSourcePicker() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Selecionar da galeria'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Tirar foto com a câmera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _deleteArchive(int archiveId) async {

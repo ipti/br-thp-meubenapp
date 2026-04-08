@@ -1,16 +1,43 @@
+import 'dart:io';
+
 import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 
-class PageDefault extends StatelessWidget {
+class PageDefault extends StatefulWidget {
   final String? title;
   final String? subtitle;
   final Widget body;
   const PageDefault({super.key, this.title, this.subtitle, required this.body});
 
   @override
+  State<PageDefault> createState() => _PageDefaultState();
+}
+
+class _PageDefaultState extends State<PageDefault> {
+  bool _isOnline = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnlineStatus();
+  }
+
+  Future<void> _checkOnlineStatus() async {
+    try {
+      final result = await InternetAddress.lookup('one.one.one.one');
+      if (!mounted) return;
+      setState(() => _isOnline = result.isNotEmpty);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isOnline = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+    final hasSubtitle =
+        widget.subtitle != null && widget.subtitle!.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -20,10 +47,9 @@ class PageDefault extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
+            tooltip: _isOnline ? 'Sair' : 'Logout indisponível offline',
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              AppNavigator.redirectToLogin();
-            },
+            onPressed: _isOnline ? AppNavigator.redirectToLogin : null,
           ),
         ],
       ),
@@ -34,7 +60,7 @@ class PageDefault extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
-              title ?? '',
+              widget.title ?? '',
               textAlign: TextAlign.start,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
@@ -43,9 +69,9 @@ class PageDefault extends StatelessWidget {
           if (hasSubtitle)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(subtitle!),
+              child: Text(widget.subtitle!),
             ),
-          Expanded(child: body),
+          Expanded(child: widget.body),
         ],
       ),
     );

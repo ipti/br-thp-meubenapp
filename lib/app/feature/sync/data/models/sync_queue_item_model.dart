@@ -1,4 +1,4 @@
-enum SyncQueueType { fouls, archives }
+enum SyncQueueType { fouls, archives, meetingCreate }
 
 enum SyncQueueStatus { pending, processing, synced, failed }
 
@@ -59,6 +59,8 @@ class SyncQueueItemModel {
         return SyncQueueType.fouls;
       case 'ARCHIVES_SYNC':
         return SyncQueueType.archives;
+      case 'MEETING_CREATE_SYNC':
+        return SyncQueueType.meetingCreate;
       default:
         return SyncQueueType.fouls;
     }
@@ -70,6 +72,8 @@ class SyncQueueItemModel {
         return 'FOULS_SYNC';
       case SyncQueueType.archives:
         return 'ARCHIVES_SYNC';
+      case SyncQueueType.meetingCreate:
+        return 'MEETING_CREATE_SYNC';
     }
   }
 

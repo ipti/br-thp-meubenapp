@@ -195,6 +195,8 @@ class _SyncPageState extends State<SyncPage> {
         return Icons.fact_check_outlined;
       case SyncQueueType.archives:
         return Icons.photo_library_outlined;
+      case SyncQueueType.meetingCreate:
+        return Icons.event_note_outlined;
     }
   }
 

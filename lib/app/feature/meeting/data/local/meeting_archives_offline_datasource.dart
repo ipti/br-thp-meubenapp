@@ -66,6 +66,14 @@ class MeetingArchivesOfflineDatasource {
     await _store.record(localId).delete(db);
   }
 
+  Future<void> deleteByMeetingId(int meetingId) async {
+    final db = await _localDatabase.database;
+    await _store.delete(
+      db,
+      finder: Finder(filter: Filter.equals('meetingId', meetingId)),
+    );
+  }
+
   MeetingArchiveOfflineItem _fromSnapshot(
     RecordSnapshot<int, Map<String, Object?>> snapshot,
   ) {

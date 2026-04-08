@@ -7,6 +7,7 @@ class ButtonDefault extends StatelessWidget {
   final bool isLoading;
   final IconData? iconLeft;
   final IconData? iconRight;
+  final bool isSecondary;
 
   const ButtonDefault({
     super.key,
@@ -15,28 +16,27 @@ class ButtonDefault extends StatelessWidget {
     this.isLoading = false,
     this.iconLeft,
     this.iconRight,
+    this.isSecondary = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: isSecondary ? AppColors.background : AppColors.primary,
+        foregroundColor: isSecondary ? AppColors.textPrimary : Colors.white,
         minimumSize: const Size(double.infinity, 50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
       onPressed: isLoading ? null : onPressed,
       child: isLoading
-          ? const SizedBox(
+          ? SizedBox(
               width: 22,
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.white,
+                  isSecondary ? AppColors.textPrimary : Colors.white,
                 ),
               ),
             )

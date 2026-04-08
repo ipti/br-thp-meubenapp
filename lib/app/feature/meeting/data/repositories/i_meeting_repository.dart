@@ -1,4 +1,5 @@
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_detail_model.dart';
+import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_create_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_item_model.dart';
 import 'package:br_thp_meubenapp/app/feature/sync/data/models/sync_queue_item_model.dart';
 import 'dart:io';
@@ -30,6 +31,12 @@ abstract class IMeetingRepository {
   });
 
   Future<void> deleteMeetingArchive({required int archiveId});
+
+  Future<List<MeetingAssigneeModel>> getMeetingAssignableUsers();
+
+  Future<MeetingCreateResult> createMeeting({
+    required MeetingCreateRequestModel request,
+  });
 
   Future<List<SyncQueueItemModel>> getSyncQueueItems();
 

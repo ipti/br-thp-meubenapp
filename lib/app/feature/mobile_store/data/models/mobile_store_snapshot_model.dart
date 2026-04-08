@@ -28,9 +28,9 @@ class MobileStoreSnapshotModel {
       active: _toBool(json['active']),
       createdAt: _toDate(json['createdAt']),
       updatedAt: _toDate(json['updatedAt']),
-      project: _toList(json['project'])
-          .map(MobileStoreProjectModel.fromJson)
-          .toList(),
+      project: _toList(
+        json['project'],
+      ).map(MobileStoreProjectModel.fromJson).toList(),
     );
   }
 
@@ -94,17 +94,19 @@ class MobileStoreProjectModel {
       id: MobileStoreSnapshotModel._toInt(json['id']),
       name: json['name']?.toString() ?? '',
       active: MobileStoreSnapshotModel._toBool(json['active']),
-      approvalPercentage:
-          MobileStoreSnapshotModel._toDouble(json['approval_percentage']),
+      approvalPercentage: MobileStoreSnapshotModel._toDouble(
+        json['approval_percentage'],
+      ),
       rulerUrl: json['ruler_url']?.toString(),
       avartarUrl: json['avartar_url']?.toString(),
-      socialTechnologyId:
-          MobileStoreSnapshotModel._toInt(json['social_technology_id']),
+      socialTechnologyId: MobileStoreSnapshotModel._toInt(
+        json['social_technology_id'],
+      ),
       createdAt: MobileStoreSnapshotModel._toDate(json['createdAt']),
       updatedAt: MobileStoreSnapshotModel._toDate(json['updatedAt']),
-      classrooms: MobileStoreSnapshotModel._toList(json['classrooms'])
-          .map(MobileStoreClassroomModel.fromJson)
-          .toList(),
+      classrooms: MobileStoreSnapshotModel._toList(
+        json['classrooms'],
+      ).map(MobileStoreClassroomModel.fromJson).toList(),
     );
   }
 }
@@ -113,12 +115,14 @@ class MobileStoreClassroomModel {
   final int id;
   final String name;
   final DateTime createdAt;
+  final List<MobileStoreRegisterClassroomModel> registerClassroom;
   final List<MobileStoreMeetingModel> meeting;
 
   const MobileStoreClassroomModel({
     required this.id,
     required this.name,
     required this.createdAt,
+    required this.registerClassroom,
     required this.meeting,
   });
 
@@ -127,9 +131,12 @@ class MobileStoreClassroomModel {
       id: MobileStoreSnapshotModel._toInt(json['id']),
       name: json['name']?.toString() ?? '',
       createdAt: MobileStoreSnapshotModel._toDate(json['createdAt']),
-      meeting: MobileStoreSnapshotModel._toList(json['meeting'])
-          .map(MobileStoreMeetingModel.fromJson)
-          .toList(),
+      registerClassroom: MobileStoreSnapshotModel._toList(
+        json['register_classroom'],
+      ).map(MobileStoreRegisterClassroomModel.fromJson).toList(),
+      meeting: MobileStoreSnapshotModel._toList(
+        json['meeting'],
+      ).map(MobileStoreMeetingModel.fromJson).toList(),
     );
   }
 }
@@ -139,7 +146,6 @@ class MobileStoreMeetingModel {
   final String name;
   final DateTime createdAt;
   final dynamic fouls;
-  final MobileStoreClassroomInMeetingModel? classroom;
   final List<MobileStoreMeetingArchiveModel> meetingArchives;
 
   const MobileStoreMeetingModel({
@@ -147,40 +153,18 @@ class MobileStoreMeetingModel {
     required this.name,
     required this.createdAt,
     required this.fouls,
-    required this.classroom,
     required this.meetingArchives,
   });
 
   factory MobileStoreMeetingModel.fromJson(Map<String, dynamic> json) {
-    final classroomJson = json['classroom'];
     return MobileStoreMeetingModel(
       id: MobileStoreSnapshotModel._toInt(json['id']),
       name: json['name']?.toString() ?? '',
       createdAt: MobileStoreSnapshotModel._toDate(json['createdAt']),
       fouls: json['fouls'],
-      classroom: classroomJson is Map<String, dynamic>
-          ? MobileStoreClassroomInMeetingModel.fromJson(classroomJson)
-          : null,
-      meetingArchives: MobileStoreSnapshotModel._toList(json['meeting_archives'])
-          .map(MobileStoreMeetingArchiveModel.fromJson)
-          .toList(),
-    );
-  }
-}
-
-class MobileStoreClassroomInMeetingModel {
-  final List<MobileStoreRegisterClassroomModel> registerClassroom;
-
-  const MobileStoreClassroomInMeetingModel({
-    required this.registerClassroom,
-  });
-
-  factory MobileStoreClassroomInMeetingModel.fromJson(Map<String, dynamic> json) {
-    return MobileStoreClassroomInMeetingModel(
-      registerClassroom:
-          MobileStoreSnapshotModel._toList(json['register_classroom'])
-              .map(MobileStoreRegisterClassroomModel.fromJson)
-              .toList(),
+      meetingArchives: MobileStoreSnapshotModel._toList(
+        json['meeting_archives'],
+      ).map(MobileStoreMeetingArchiveModel.fromJson).toList(),
     );
   }
 }
@@ -190,7 +174,9 @@ class MobileStoreRegisterClassroomModel {
 
   const MobileStoreRegisterClassroomModel({required this.registration});
 
-  factory MobileStoreRegisterClassroomModel.fromJson(Map<String, dynamic> json) {
+  factory MobileStoreRegisterClassroomModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     final registrationJson = json['registration'];
     return MobileStoreRegisterClassroomModel(
       registration: registrationJson is Map<String, dynamic>
@@ -204,10 +190,7 @@ class MobileStoreRegistrationModel {
   final int id;
   final String name;
 
-  const MobileStoreRegistrationModel({
-    required this.id,
-    required this.name,
-  });
+  const MobileStoreRegistrationModel({required this.id, required this.name});
 
   factory MobileStoreRegistrationModel.fromJson(Map<String, dynamic> json) {
     return MobileStoreRegistrationModel(
