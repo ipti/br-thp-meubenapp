@@ -284,12 +284,14 @@ class MeetingRepository implements IMeetingRepository {
           meetingId: meetingId,
         );
         return;
-      } on ApiException catch (e) {
-        if (_isUnauthorized(e.statusCode)) rethrow;
+      } on ApiException {
+        // Em qualquer falha no envio direto, mantemos a garantia de sync local.
       } catch (_) {}
     }
 
-    await _syncQueueLocalDatasource.removePendingByTypeAndMeeting(
+    // Remove registros antigos (pending/failed/synced) desse mesmo encontro
+    // para manter só o estado mais recente das faltas na fila.
+    await _syncQueueLocalDatasource.removeByTypeAndMeeting(
       type: SyncQueueType.fouls,
       meetingId: meetingId,
     );
@@ -570,6 +572,47 @@ class MeetingRepository implements IMeetingRepository {
       requiresLogin: requiresLogin,
       lastError: lastError,
     );
+  }
+
+  @override
+  Future<void> deleteSyncQueueItem(SyncQueueItemModel item) async {
+    await _syncQueueLocalDatasource.deleteByLocalId(item.localId);
+
+    final meetingId = int.tryParse(item.payload['meetingId']?.toString() ?? '');
+    switch (item.type) {
+      case SyncQueueType.fouls:
+        if (meetingId != null) {
+          await _foulsLocalDatasource.clearFoulsByMeeting(meetingId);
+        }
+        break;
+      case SyncQueueType.archives:
+        final archiveLocalId = int.tryParse(
+          item.payload['archiveLocalId']?.toString() ?? '',
+        );
+        if (archiveLocalId != null) {
+          await _archivesOfflineDatasource.deleteByLocalId(archiveLocalId);
+        }
+        break;
+      case SyncQueueType.meetingCreate:
+        final meetingOfflineId = int.tryParse(
+          item.payload['meetingOfflineId']?.toString() ?? '',
+        );
+        if (meetingOfflineId != null) {
+          final localMeetingId = -meetingOfflineId;
+          await _meetingOfflineDatasource.deleteByLocalId(meetingOfflineId);
+          await _foulsLocalDatasource.clearFoulsByMeeting(localMeetingId);
+          await _archivesOfflineDatasource.deleteByMeetingId(localMeetingId);
+          await _syncQueueLocalDatasource.removeByTypeAndMeeting(
+            type: SyncQueueType.fouls,
+            meetingId: localMeetingId,
+          );
+          await _syncQueueLocalDatasource.removeByTypeAndMeeting(
+            type: SyncQueueType.archives,
+            meetingId: localMeetingId,
+          );
+        }
+        break;
+    }
   }
 
   Future<void> _syncFouls(SyncQueueItemModel item) async {

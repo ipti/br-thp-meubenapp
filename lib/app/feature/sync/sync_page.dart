@@ -20,6 +20,7 @@ class _SyncPageState extends State<SyncPage> {
 
   bool _loading = true;
   bool _syncing = false;
+  int? _removingLocalId;
   bool _isOnline = false;
   List<SyncQueueItemModel> _items = const [];
 
@@ -86,6 +87,51 @@ class _SyncPageState extends State<SyncPage> {
       await _loadQueue();
       if (mounted) {
         setState(() => _syncing = false);
+      }
+    }
+  }
+
+  Future<void> _removeSyncItem(SyncQueueItemModel item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Excluir sincronização'),
+          content: Text(
+            'Deseja excluir esta ação da fila?\n\n"${item.description}"',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Excluir'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _removingLocalId = item.localId);
+    try {
+      await _repository.deleteSyncQueueItem(item);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sincronização removida da fila.')),
+      );
+      await _loadQueue();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao excluir item: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _removingLocalId = null);
       }
     }
   }
@@ -186,29 +232,58 @@ class _SyncPageState extends State<SyncPage> {
                             itemBuilder: (context, index) {
                               final item = _items[index];
                               final statusColor = _statusColor(item.status);
+                              final isRemoving =
+                                  _removingLocalId == item.localId;
                               return Card(
                                 child: ListTile(
                                   leading: Icon(_typeIcon(item.type)),
                                   title: Text(item.description),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withValues(
-                                        alpha: 0.14,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withValues(
+                                            alpha: 0.14,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _statusLabel(item.status),
+                                          style: TextStyle(
+                                            color: statusColor,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      _statusLabel(item.status),
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        tooltip: 'Excluir da fila',
+                                        onPressed: (_syncing || isRemoving)
+                                            ? null
+                                            : () => _removeSyncItem(item),
+                                        icon: isRemoving
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.red,
+                                              ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                   subtitle: Text(
                                     'Criado por: ${item.createdBy}\n'

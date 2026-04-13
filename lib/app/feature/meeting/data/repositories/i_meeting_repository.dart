@@ -41,4 +41,6 @@ abstract class IMeetingRepository {
   Future<List<SyncQueueItemModel>> getSyncQueueItems();
 
   Future<SyncExecutionResult> syncPendingActions();
+
+  Future<void> deleteSyncQueueItem(SyncQueueItemModel item);
 }

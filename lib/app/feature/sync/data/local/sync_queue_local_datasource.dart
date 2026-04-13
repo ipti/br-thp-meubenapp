@@ -173,6 +173,11 @@ class SyncQueueLocalDatasource {
     }
   }
 
+  Future<void> deleteByLocalId(int localId) async {
+    final db = await _localDatabase.database;
+    await _store.record(localId).delete(db);
+  }
+
   Future<void> _updateStatus(
     int localId, {
     required SyncQueueStatus status,

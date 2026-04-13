@@ -9,6 +9,7 @@ import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_create_
 import 'package:br_thp_meubenapp/app/feature/meeting/data/models/meeting_item_model.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting_repository.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/meeting_repository.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 
@@ -163,8 +164,12 @@ class _MeetingPageState extends State<MeetingPage> {
                     TextField(
                       controller: workloadController,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [_WorkloadTimeInputFormatter()],
+                      maxLength: 5,
                       decoration: const InputDecoration(
-                        labelText: 'Carga horária (horas) *',
+                        labelText: 'Carga horária (HH:MM) *',
+                        hintText: 'Ex.: 01:20',
+                        counterText: '',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -251,13 +256,19 @@ class _MeetingPageState extends State<MeetingPage> {
                 ButtonDefault(
                   onPressed: () {
                     final name = nameController.text.trim();
-                    final workload =
-                        int.tryParse(workloadController.text.trim()) ?? 0;
+                    final workloadInMinutes = _parseWorkloadToMinutes(
+                      workloadController.text,
+                    );
 
-                    if (name.isEmpty || meetingDate == null || workload <= 0) {
+                    if (name.isEmpty ||
+                        meetingDate == null ||
+                        workloadInMinutes == null ||
+                        workloadInMinutes <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Preencha nome, data e carga horária.'),
+                          content: Text(
+                            'Preencha nome, data e carga horária no formato HH:MM.',
+                          ),
                         ),
                       );
                       return;
@@ -268,7 +279,7 @@ class _MeetingPageState extends State<MeetingPage> {
                       MeetingCreateRequestModel(
                         name: name,
                         meetingDate: meetingDate!,
-                        workload: workload,
+                        workload: workloadInMinutes,
                         classroomId: classroomId,
                         theme: themeController.text.trim(),
                         users: selectedUsers.toList()..sort(),
@@ -292,6 +303,23 @@ class _MeetingPageState extends State<MeetingPage> {
     } catch (_) {
       return false;
     }
+  }
+
+  int? _parseWorkloadToMinutes(String input) {
+    var value = input.trim().toLowerCase();
+    if (value.endsWith('h')) {
+      value = value.substring(0, value.length - 1).trim();
+    }
+
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+
+    final hours = int.tryParse(parts[0].trim());
+    final minutes = int.tryParse(parts[1].trim());
+    if (hours == null || minutes == null) return null;
+    if (hours < 0 || minutes < 0 || minutes >= 60) return null;
+
+    return (hours * 60) + minutes;
   }
 
   @override
@@ -379,6 +407,37 @@ class _MeetingPageState extends State<MeetingPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WorkloadTimeInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return const TextEditingValue(text: '');
+
+    final limited = digits.length > 4 ? digits.substring(0, 4) : digits;
+    if (limited.length >= 3) {
+      final minuteTens = int.tryParse(limited[2]) ?? 0;
+      if (minuteTens > 5) {
+        return oldValue;
+      }
+    }
+
+    String formatted;
+    if (limited.length <= 2) {
+      formatted = limited;
+    } else {
+      formatted = '${limited.substring(0, 2)}:${limited.substring(2)}';
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

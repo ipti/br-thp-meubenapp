@@ -32,6 +32,7 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
   bool _saving = false;
   bool _uploadingArchive = false;
   final List<MeetingArchiveModel> _archives = [];
+  int? _stateInitializedForMeetingId;
 
   @override
   void initState() {
@@ -266,10 +267,11 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
               );
             }
 
-            if (_absentStudentIds.isEmpty) {
+            if (_stateInitializedForMeetingId != detail.id) {
+              _stateInitializedForMeetingId = detail.id;
+              _absentStudentIds.clear();
               _absentStudentIds.addAll(detail.absentStudentIds);
-            }
-            if (_archives.isEmpty) {
+              _archives.clear();
               _archives.addAll(detail.archives);
             }
 
