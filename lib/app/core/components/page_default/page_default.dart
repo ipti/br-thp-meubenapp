@@ -1,4 +1,5 @@
 import 'package:br_thp_meubenapp/app/feature/sync/data/local/sync_queue_local_datasource.dart';
+import 'package:br_thp_meubenapp/app/core/service/app_update_service.dart';
 import 'package:flutter/material.dart';
 import 'package:br_thp_meubenapp/app/core/theme/app_colors.dart';
 
@@ -19,6 +20,10 @@ class _PageDefaultState extends State<PageDefault> {
   void initState() {
     super.initState();
     _syncQueueLocalDatasource = SyncQueueLocalDatasource();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      AppUpdateService.checkAndPrompt(context);
+    });
   }
 
   @override

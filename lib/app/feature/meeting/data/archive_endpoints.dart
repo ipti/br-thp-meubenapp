@@ -10,5 +10,8 @@ class ArchiveEndpoints {
     return '$archiveMeetingBff?meetingId=$meetingId$sourceQuery';
   }
 
+  static String byMeetingId(int meetingId) =>
+      '$archiveMeetingBff?meetingId=$meetingId';
+
   static String deleteById(int id) => '$archiveMeetingBff/$id';
 }

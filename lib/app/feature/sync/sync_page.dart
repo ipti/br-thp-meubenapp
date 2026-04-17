@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:br_thp_meubenapp/app/core/components/button/button_default.dart';
 import 'package:br_thp_meubenapp/app/core/components/page_default/page_default.dart';
 import 'package:br_thp_meubenapp/app/core/network/api_client.dart';
+import 'package:br_thp_meubenapp/app/feature/meeting/data/local/meeting_archives_offline_datasource.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting_repository.dart';
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/meeting_repository.dart';
 import 'package:br_thp_meubenapp/app/feature/sync/data/models/sync_queue_item_model.dart';
@@ -17,12 +18,15 @@ class SyncPage extends StatefulWidget {
 
 class _SyncPageState extends State<SyncPage> {
   late final IMeetingRepository _repository;
+  final MeetingArchivesOfflineDatasource _archivesOfflineDatasource =
+      MeetingArchivesOfflineDatasource();
 
   bool _loading = true;
   bool _syncing = false;
   int? _removingLocalId;
   bool _isOnline = false;
   List<SyncQueueItemModel> _items = const [];
+  final Map<int, MeetingArchiveOfflineItem> _archiveByLocalId = {};
 
   @override
   void initState() {
@@ -35,12 +39,34 @@ class _SyncPageState extends State<SyncPage> {
     setState(() => _loading = true);
     final online = await _checkOnlineStatus();
     final items = await _repository.getSyncQueueItems();
+    final previews = await _loadArchivePreviews(items);
     if (!mounted) return;
     setState(() {
       _items = items;
+      _archiveByLocalId
+        ..clear()
+        ..addAll(previews);
       _isOnline = online;
       _loading = false;
     });
+  }
+
+  Future<Map<int, MeetingArchiveOfflineItem>> _loadArchivePreviews(
+    List<SyncQueueItemModel> items,
+  ) async {
+    final map = <int, MeetingArchiveOfflineItem>{};
+    for (final item in items) {
+      if (item.type != SyncQueueType.archives) continue;
+      final archiveLocalId = _extractArchiveLocalId(item);
+      if (archiveLocalId == null || map.containsKey(archiveLocalId)) continue;
+      final archive = await _archivesOfflineDatasource.getByLocalId(
+        archiveLocalId,
+      );
+      if (archive != null) {
+        map[archiveLocalId] = archive;
+      }
+    }
+    return map;
   }
 
   Future<bool> _checkOnlineStatus() async {
@@ -234,10 +260,45 @@ class _SyncPageState extends State<SyncPage> {
                               final statusColor = _statusColor(item.status);
                               final isRemoving =
                                   _removingLocalId == item.localId;
+                              final archiveLocalId = _extractArchiveLocalId(
+                                item,
+                              );
+                              final archivePreview = archiveLocalId == null
+                                  ? null
+                                  : _archiveByLocalId[archiveLocalId];
+                              final hasPreview =
+                                  archivePreview != null &&
+                                  archivePreview.filePath.isNotEmpty &&
+                                  File(archivePreview.filePath).existsSync();
                               return Card(
                                 child: ListTile(
-                                  leading: Icon(_typeIcon(item.type)),
-                                  title: Text(item.description),
+                                  onTap: hasPreview
+                                      ? () => _showLocalImagePreview(
+                                          archivePreview.filePath,
+                                          archivePreview.originalName,
+                                        )
+                                      : null,
+                                  leading: hasPreview
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          child: Image.file(
+                                            File(archivePreview.filePath),
+                                            width: 42,
+                                            height: 42,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    Icon(_typeIcon(item.type)),
+                                          ),
+                                        )
+                                      : Icon(_typeIcon(item.type)),
+                                  title: Text(
+                                    item.description,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -264,6 +325,16 @@ class _SyncPageState extends State<SyncPage> {
                                         ),
                                       ),
                                       const SizedBox(width: 6),
+                                      if (hasPreview)
+                                        IconButton(
+                                          tooltip: 'Visualizar imagem',
+                                          onPressed: () =>
+                                              _showLocalImagePreview(
+                                                archivePreview.filePath,
+                                                archivePreview.originalName,
+                                              ),
+                                          icon: const Icon(Icons.zoom_in),
+                                        ),
                                       IconButton(
                                         tooltip: 'Excluir da fila',
                                         onPressed: (_syncing || isRemoving)
@@ -286,9 +357,12 @@ class _SyncPageState extends State<SyncPage> {
                                     ],
                                   ),
                                   subtitle: Text(
-                                    'Criado por: ${item.createdBy}\n'
-                                    'Em: ${_formatDate(item.createdAt)}'
-                                    '${item.errorMessage == null ? '' : '\nErro: ${item.errorMessage}'}',
+                                    _buildItemSubtitle(
+                                      item,
+                                      hasPreview: hasPreview,
+                                    ),
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   isThreeLine: true,
                                 ),
@@ -362,5 +436,100 @@ class _SyncPageState extends State<SyncPage> {
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '$day/$month/$year $hour:$minute';
+  }
+
+  int? _extractArchiveLocalId(SyncQueueItemModel item) {
+    if (item.type != SyncQueueType.archives) return null;
+    return int.tryParse(item.payload['archiveLocalId']?.toString() ?? '');
+  }
+
+  int? _extractMeetingId(SyncQueueItemModel item) {
+    return int.tryParse(item.payload['meetingId']?.toString() ?? '');
+  }
+
+  String _typeLabel(SyncQueueType type) {
+    switch (type) {
+      case SyncQueueType.fouls:
+        return 'Faltas';
+      case SyncQueueType.archives:
+        return 'Arquivo';
+      case SyncQueueType.meetingCreate:
+        return 'Criação de encontro';
+    }
+  }
+
+  String _buildItemSubtitle(
+    SyncQueueItemModel item, {
+    required bool hasPreview,
+  }) {
+    final meetingId = _extractMeetingId(item);
+    final details = <String>[
+      'Tipo: ${_typeLabel(item.type)}',
+      if (meetingId != null) 'Encontro: $meetingId',
+      'Tentativas: ${item.retryCount}',
+      'Criado por: ${item.createdBy}',
+      'Em: ${_formatDate(item.createdAt)}',
+      if (hasPreview) 'Imagem local disponível (toque para ampliar).',
+      if (item.errorMessage != null && item.errorMessage!.trim().isNotEmpty)
+        'Erro: ${item.errorMessage!.trim()}',
+    ];
+    return details.join('\n');
+  }
+
+  Future<void> _showLocalImagePreview(String path, String title) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.black87,
+          insetPadding: const EdgeInsets.all(12),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 5,
+                  child: Center(
+                    child: Image.file(
+                      File(path),
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.white70,
+                            size: 56,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                top: 12,
+                right: 52,
+                child: Text(
+                  title,
+                  style: const TextStyle(color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: IconButton(
+                  color: Colors.white,
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

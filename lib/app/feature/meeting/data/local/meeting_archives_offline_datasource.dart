@@ -17,6 +17,24 @@ class MeetingArchiveOfflineItem {
   final DateTime createdAt;
 }
 
+class MeetingArchiveRemoteCacheItem {
+  const MeetingArchiveRemoteCacheItem({
+    required this.localId,
+    required this.meetingId,
+    required this.archiveId,
+    required this.originalName,
+    required this.archiveUrl,
+    required this.updatedAt,
+  });
+
+  final int localId;
+  final int meetingId;
+  final int archiveId;
+  final String originalName;
+  final String archiveUrl;
+  final DateTime updatedAt;
+}
+
 class MeetingArchivesOfflineDatasource {
   MeetingArchivesOfflineDatasource({LocalDatabase? localDatabase})
     : _localDatabase = localDatabase ?? LocalDatabase.instance;
@@ -25,6 +43,8 @@ class MeetingArchivesOfflineDatasource {
   final StoreRef<int, Map<String, Object?>> _store = intMapStoreFactory.store(
     'archives_meeting_offline',
   );
+  final StoreRef<int, Map<String, Object?>> _remoteCacheStore =
+      intMapStoreFactory.store('archives_meeting_remote_cache');
 
   Future<int> addPendingArchive({
     required int meetingId,
@@ -74,6 +94,48 @@ class MeetingArchivesOfflineDatasource {
     );
   }
 
+  Future<void> replaceRemoteCacheByMeeting({
+    required int meetingId,
+    required List<MeetingArchiveRemoteCacheItem> archives,
+  }) async {
+    final db = await _localDatabase.database;
+    await _remoteCacheStore.delete(
+      db,
+      finder: Finder(filter: Filter.equals('meetingId', meetingId)),
+    );
+    for (final archive in archives) {
+      await _remoteCacheStore.add(db, {
+        'meetingId': meetingId,
+        'archiveId': archive.archiveId,
+        'originalName': archive.originalName,
+        'archiveUrl': archive.archiveUrl,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    }
+  }
+
+  Future<List<MeetingArchiveRemoteCacheItem>> getRemoteCacheByMeeting(
+    int meetingId,
+  ) async {
+    final db = await _localDatabase.database;
+    final snapshots = await _remoteCacheStore.find(
+      db,
+      finder: Finder(
+        filter: Filter.equals('meetingId', meetingId),
+        sortOrders: [SortOrder('updatedAt')],
+      ),
+    );
+    return snapshots.map(_remoteFromSnapshot).toList();
+  }
+
+  Future<void> deleteRemoteCacheByArchiveId(int archiveId) async {
+    final db = await _localDatabase.database;
+    await _remoteCacheStore.delete(
+      db,
+      finder: Finder(filter: Filter.equals('archiveId', archiveId)),
+    );
+  }
+
   MeetingArchiveOfflineItem _fromSnapshot(
     RecordSnapshot<int, Map<String, Object?>> snapshot,
   ) {
@@ -88,6 +150,22 @@ class MeetingArchivesOfflineDatasource {
       originalName: map['originalName']?.toString() ?? '',
       createdAt:
           DateTime.tryParse(map['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
+    );
+  }
+
+  MeetingArchiveRemoteCacheItem _remoteFromSnapshot(
+    RecordSnapshot<int, Map<String, Object?>> snapshot,
+  ) {
+    final map = snapshot.value;
+    return MeetingArchiveRemoteCacheItem(
+      localId: snapshot.key,
+      meetingId: int.tryParse(map['meetingId']?.toString() ?? '') ?? 0,
+      archiveId: int.tryParse(map['archiveId']?.toString() ?? '') ?? 0,
+      originalName: map['originalName']?.toString() ?? '',
+      archiveUrl: map['archiveUrl']?.toString() ?? '',
+      updatedAt:
+          DateTime.tryParse(map['updatedAt']?.toString() ?? '') ??
           DateTime.now(),
     );
   }

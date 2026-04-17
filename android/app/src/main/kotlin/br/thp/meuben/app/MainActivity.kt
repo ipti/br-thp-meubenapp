@@ -1,4 +1,4 @@
-package com.example.br_thp_meubenapp
+package br.thp.meuben.app
 
 import io.flutter.embedding.android.FlutterActivity
 

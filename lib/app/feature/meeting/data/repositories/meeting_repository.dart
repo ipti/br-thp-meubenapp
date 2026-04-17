@@ -167,6 +167,46 @@ class MeetingRepository implements IMeetingRepository {
           ),
         )
         .toList();
+    final cachedRemoteArchives =
+        (await _archivesOfflineDatasource.getRemoteCacheByMeeting(
+              currentMeeting.id,
+            ))
+            .map(
+              (archive) => MeetingArchiveModel(
+                id: archive.archiveId,
+                originalName: archive.originalName,
+                archiveUrl: archive.archiveUrl,
+              ),
+            )
+            .toList();
+
+    final online = await _isOnline();
+    List<MeetingArchiveModel> fetchedArchives = const [];
+    if (online) {
+      fetchedArchives = await _fetchMeetingArchivesFromApi(
+        meetingId: currentMeeting.id,
+      );
+      await _archivesOfflineDatasource.replaceRemoteCacheByMeeting(
+        meetingId: currentMeeting.id,
+        archives: fetchedArchives
+            .map(
+              (archive) => MeetingArchiveRemoteCacheItem(
+                localId: 0,
+                meetingId: currentMeeting.id,
+                archiveId: archive.id,
+                originalName: archive.originalName,
+                archiveUrl: archive.archiveUrl,
+                updatedAt: DateTime.now(),
+              ),
+            )
+            .toList(),
+      );
+    }
+
+    final mergedApiArchives = _mergeArchives(
+      apiArchives,
+      _mergeArchives(cachedRemoteArchives, fetchedArchives),
+    );
 
     final localArchives = await _archivesOfflineDatasource.getPendingByMeeting(
       currentMeeting.id,
@@ -189,7 +229,7 @@ class MeetingRepository implements IMeetingRepository {
       createdAt: currentMeeting.createdAt,
       students: students,
       absentStudentIds: initialFouls,
-      archives: [...pendingArchives, ...apiArchives],
+      archives: [...pendingArchives, ...mergedApiArchives],
     );
   }
 
@@ -430,6 +470,8 @@ class MeetingRepository implements IMeetingRepository {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Falha ao excluir arquivo (${response.statusCode}).');
     }
+
+    await _archivesOfflineDatasource.deleteRemoteCacheByArchiveId(archiveId);
   }
 
   @override
@@ -871,6 +913,84 @@ class MeetingRepository implements IMeetingRepository {
       return [data];
     }
     return const [];
+  }
+
+  Future<List<MeetingArchiveModel>> _fetchMeetingArchivesFromApi({
+    required int meetingId,
+  }) async {
+    try {
+      final response = await _apiClient.get(
+        ArchiveEndpoints.byMeetingId(meetingId),
+        withAuthToken: true,
+      );
+      final maps = _extractArchiveMaps(response.data);
+      return maps
+          .map((item) {
+            final id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
+            final originalName =
+                item['original_name']?.toString() ??
+                item['originalName']?.toString() ??
+                item['name']?.toString() ??
+                'Arquivo';
+            final archiveUrl =
+                item['archive_url']?.toString() ??
+                item['archiveUrl']?.toString() ??
+                item['url']?.toString() ??
+                '';
+            return MeetingArchiveModel(
+              id: id,
+              originalName: originalName,
+              archiveUrl: archiveUrl,
+            );
+          })
+          .where(
+            (item) =>
+                item.originalName.isNotEmpty || item.archiveUrl.isNotEmpty,
+          )
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  List<Map<String, dynamic>> _extractArchiveMaps(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final raw =
+          data['meeting_archives'] ??
+          data['archives'] ??
+          data['items'] ??
+          data['data'];
+      if (raw is List) {
+        return raw.whereType<Map<String, dynamic>>().toList();
+      }
+      if (raw is Map<String, dynamic>) {
+        return [raw];
+      }
+      return const [];
+    }
+    if (data is List) {
+      return data.whereType<Map<String, dynamic>>().toList();
+    }
+    return const [];
+  }
+
+  List<MeetingArchiveModel> _mergeArchives(
+    List<MeetingArchiveModel> fromSnapshot,
+    List<MeetingArchiveModel> fromEndpoint,
+  ) {
+    final merged = <String, MeetingArchiveModel>{};
+
+    String keyFor(MeetingArchiveModel item) {
+      if (item.id > 0) return 'id:${item.id}';
+      if (item.archiveUrl.isNotEmpty) return 'url:${item.archiveUrl}';
+      return 'name:${item.originalName}';
+    }
+
+    for (final item in [...fromSnapshot, ...fromEndpoint]) {
+      merged[keyFor(item)] = item;
+    }
+
+    return merged.values.toList();
   }
 
   String _generateRequestId() {

@@ -238,6 +238,148 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
     }
   }
 
+  bool _hasLocalPreview(MeetingArchiveModel archive) {
+    return (archive.localPath ?? '').trim().isNotEmpty;
+  }
+
+  bool _canPreviewArchive(MeetingArchiveModel archive) {
+    return _hasLocalPreview(archive) ||
+        (_isOnline && archive.archiveUrl.trim().isNotEmpty);
+  }
+
+  String _archiveSubtitle(MeetingArchiveModel archive) {
+    if (archive.isPendingSync && _hasLocalPreview(archive)) {
+      return 'Arquivo pendente de sincronização. Toque para ampliar.';
+    }
+    if (archive.isPendingSync) {
+      return 'Arquivo pendente de sincronização.';
+    }
+    if (_hasLocalPreview(archive)) {
+      return _isOnline
+          ? 'Imagem local disponível. Toque para ampliar.'
+          : 'Imagem local (offline). Toque para ampliar.';
+    }
+    if (_isOnline && archive.archiveUrl.isNotEmpty) {
+      return 'Toque para ampliar.';
+    }
+    if (!_isOnline && archive.archiveUrl.isNotEmpty) {
+      return 'Sem internet para carregar a imagem.';
+    }
+    return 'Arquivo disponível offline (nome).';
+  }
+
+  Widget _archiveLeading(MeetingArchiveModel archive) {
+    if (_hasLocalPreview(archive)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.file(
+          File(archive.localPath!),
+          width: 42,
+          height: 42,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return const SizedBox(
+              width: 42,
+              height: 42,
+              child: Icon(Icons.image_not_supported_outlined),
+            );
+          },
+        ),
+      );
+    }
+
+    if (_isOnline && archive.archiveUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.network(
+          archive.archiveUrl,
+          width: 42,
+          height: 42,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return const SizedBox(
+              width: 42,
+              height: 42,
+              child: Icon(Icons.link),
+            );
+          },
+        ),
+      );
+    }
+
+    if (!_isOnline && archive.archiveUrl.isNotEmpty) {
+      return const Icon(Icons.cloud_off_outlined, color: Colors.orange);
+    }
+
+    return const Icon(Icons.insert_drive_file_outlined);
+  }
+
+  Future<void> _openArchivePreview(MeetingArchiveModel archive) async {
+    if (!_canPreviewArchive(archive)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sem conexão para visualizar este arquivo agora.'),
+        ),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        final imageWidget = _hasLocalPreview(archive)
+            ? Image.file(
+                File(archive.localPath!),
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      color: Colors.white70,
+                      size: 56,
+                    ),
+                  );
+                },
+              )
+            : Image.network(
+                archive.archiveUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(Icons.broken_image_outlined, size: 56),
+                  );
+                },
+              );
+
+        return Dialog(
+          backgroundColor: Colors.black87,
+          insetPadding: const EdgeInsets.all(12),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 5,
+                  child: Center(child: imageWidget),
+                ),
+              ),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: IconButton(
+                  color: Colors.white,
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PageDefault(
@@ -358,64 +500,42 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                       if (_archives.isEmpty)
                         const Text('Sem arquivos para este encontro.'),
                       ..._archives.map((archive) {
-                        if (archive.isPendingSync) {
-                          return Card(
-                            child: ListTile(
-                              leading: const Icon(
-                                Icons.schedule_send_outlined,
-                                color: Colors.orange,
-                              ),
-                              title: Text(archive.originalName),
-                              subtitle: const Text(
-                                'Arquivo pendente de sincronização.',
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () => _deleteArchive(archive.id),
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (_isOnline && archive.archiveUrl.isNotEmpty) {
-                          return Card(
-                            child: ListTile(
-                              leading: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  archive.archiveUrl,
-                                  width: 42,
-                                  height: 42,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const SizedBox(
-                                      width: 42,
-                                      height: 42,
-                                      child: Icon(Icons.link),
-                                    );
-                                  },
-                                ),
-                              ),
-                              title: Text(archive.originalName),
-                              trailing: archive.id > 0
-                                  ? IconButton(
-                                      icon: const Icon(Icons.delete_outline),
-                                      onPressed: () =>
-                                          _deleteArchive(archive.id),
-                                    )
-                                  : null,
-                            ),
-                          );
-                        }
-
+                        final canPreview = _canPreviewArchive(archive);
+                        final canDelete =
+                            archive.isPendingSync ||
+                            (_isOnline && archive.id > 0);
                         return Card(
                           child: ListTile(
-                            leading: const Icon(
-                              Icons.insert_drive_file_outlined,
+                            onTap: canPreview
+                                ? () => _openArchivePreview(archive)
+                                : null,
+                            leading: _archiveLeading(archive),
+                            title: Text(
+                              archive.originalName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            title: Text(archive.originalName),
-                            subtitle: const Text(
-                              'Arquivo disponível offline (nome).',
+                            subtitle: Text(
+                              _archiveSubtitle(archive),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Wrap(
+                              spacing: 4,
+                              children: [
+                                if (canPreview)
+                                  IconButton(
+                                    icon: const Icon(Icons.zoom_in),
+                                    tooltip: 'Visualizar imagem',
+                                    onPressed: () =>
+                                        _openArchivePreview(archive),
+                                  ),
+                                if (canDelete)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline),
+                                    onPressed: () => _deleteArchive(archive.id),
+                                  ),
+                              ],
                             ),
                           ),
                         );
