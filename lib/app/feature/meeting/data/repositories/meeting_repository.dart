@@ -734,14 +734,8 @@ class MeetingRepository implements IMeetingRepository {
     await _meetingOfflineDatasource.deleteByLocalId(meetingOfflineId);
     await _foulsLocalDatasource.clearFoulsByMeeting(localMeetingId);
     await _archivesOfflineDatasource.deleteByMeetingId(localMeetingId);
-    await _syncQueueLocalDatasource.removeByTypeAndMeeting(
-      type: SyncQueueType.fouls,
-      meetingId: localMeetingId,
-    );
-    await _syncQueueLocalDatasource.removeByTypeAndMeeting(
-      type: SyncQueueType.archives,
-      meetingId: localMeetingId,
-    );
+    // Mantemos os itens de faltas/arquivos na fila para que eles sejam
+    // marcados como sincronizados no fluxo principal e apareçam no histórico.
   }
 
   Future<void> _syncOfflineMeetingBundle({
@@ -763,7 +757,7 @@ class MeetingRepository implements IMeetingRepository {
 
     final token = await _tokenStorage.getToken();
     final uri = Uri.parse(
-      '${ApiConfig.baseUrl}${MeetingEndpoints.meetingBffSyncOffline}',
+      '${ApiConfig.baseUrl}${MeetingEndpoints.meetingBffSyncOffline(source: 'OFFLINE_SYNC')}',
     );
     final request = http.MultipartRequest('POST', uri);
     if (token != null && token.isNotEmpty) {

@@ -270,102 +270,12 @@ class _SyncPageState extends State<SyncPage> {
                                   archivePreview != null &&
                                   archivePreview.filePath.isNotEmpty &&
                                   File(archivePreview.filePath).existsSync();
-                              return Card(
-                                child: ListTile(
-                                  onTap: hasPreview
-                                      ? () => _showLocalImagePreview(
-                                          archivePreview.filePath,
-                                          archivePreview.originalName,
-                                        )
-                                      : null,
-                                  leading: hasPreview
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          child: Image.file(
-                                            File(archivePreview.filePath),
-                                            width: 42,
-                                            height: 42,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    Icon(_typeIcon(item.type)),
-                                          ),
-                                        )
-                                      : Icon(_typeIcon(item.type)),
-                                  title: Text(
-                                    item.description,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: statusColor.withValues(
-                                            alpha: 0.14,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _statusLabel(item.status),
-                                          style: TextStyle(
-                                            color: statusColor,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      if (hasPreview)
-                                        IconButton(
-                                          tooltip: 'Visualizar imagem',
-                                          onPressed: () =>
-                                              _showLocalImagePreview(
-                                                archivePreview.filePath,
-                                                archivePreview.originalName,
-                                              ),
-                                          icon: const Icon(Icons.zoom_in),
-                                        ),
-                                      IconButton(
-                                        tooltip: 'Excluir da fila',
-                                        onPressed: (_syncing || isRemoving)
-                                            ? null
-                                            : () => _removeSyncItem(item),
-                                        icon: isRemoving
-                                            ? const SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                            : const Icon(
-                                                Icons.delete_outline,
-                                                color: Colors.red,
-                                              ),
-                                      ),
-                                    ],
-                                  ),
-                                  subtitle: Text(
-                                    _buildItemSubtitle(
-                                      item,
-                                      hasPreview: hasPreview,
-                                    ),
-                                    maxLines: 4,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  isThreeLine: true,
-                                ),
+                              return _buildSyncItemCard(
+                                item: item,
+                                statusColor: statusColor,
+                                isRemoving: isRemoving,
+                                hasPreview: hasPreview,
+                                archivePreview: archivePreview,
                               );
                             },
                           ),
@@ -388,6 +298,201 @@ class _SyncPageState extends State<SyncPage> {
       label: Text(
         '$label: $value',
         style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildSyncItemCard({
+    required SyncQueueItemModel item,
+    required Color statusColor,
+    required bool isRemoving,
+    required bool hasPreview,
+    required MeetingArchiveOfflineItem? archivePreview,
+  }) {
+    final meetingId = _extractMeetingId(item);
+    final error = item.errorMessage?.trim();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: hasPreview
+            ? () => _showLocalImagePreview(
+                archivePreview!.filePath,
+                archivePreview.originalName,
+              )
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCardLeading(
+                    item: item,
+                    hasPreview: hasPreview,
+                    archivePreview: archivePreview,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      item.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: 'Excluir da fila',
+                    onPressed: (_syncing || isRemoving)
+                        ? null
+                        : () => _removeSyncItem(item),
+                    icon: isRemoving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline, color: Colors.red),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildInfoChip(
+                    icon: Icons.info_outline,
+                    label: _statusLabel(item.status),
+                    color: statusColor,
+                    backgroundColor: statusColor.withValues(alpha: 0.14),
+                  ),
+                  _buildInfoChip(
+                    icon: _typeIcon(item.type),
+                    label: _typeLabel(item.type),
+                    color: Colors.blueGrey.shade800,
+                    backgroundColor: Colors.blueGrey.withValues(alpha: 0.12),
+                  ),
+                  if (meetingId != null)
+                    _buildInfoChip(
+                      icon: Icons.event_note_outlined,
+                      label: 'Encontro $meetingId',
+                      color: Colors.teal.shade800,
+                      backgroundColor: Colors.teal.withValues(alpha: 0.12),
+                    ),
+                  _buildInfoChip(
+                    icon: Icons.refresh_outlined,
+                    label: 'Tentativas ${item.retryCount}',
+                    color: Colors.brown.shade700,
+                    backgroundColor: Colors.brown.withValues(alpha: 0.12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Criado por: ${item.createdBy}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Em: ${_formatDate(item.createdAt)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (hasPreview) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => _showLocalImagePreview(
+                    archivePreview!.filePath,
+                    archivePreview.originalName,
+                  ),
+                  icon: const Icon(Icons.zoom_in),
+                  label: const Text('Visualizar imagem local'),
+                ),
+              ],
+              if (error != null && error.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    'Erro: $error',
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardLeading({
+    required SyncQueueItemModel item,
+    required bool hasPreview,
+    required MeetingArchiveOfflineItem? archivePreview,
+  }) {
+    if (hasPreview && archivePreview != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.file(
+          File(archivePreview.filePath),
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              Icon(_typeIcon(item.type)),
+        ),
+      );
+    }
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(_typeIcon(item.type), color: Colors.blueGrey.shade700),
+    );
+  }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color backgroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -456,24 +561,6 @@ class _SyncPageState extends State<SyncPage> {
       case SyncQueueType.meetingCreate:
         return 'Criação de encontro';
     }
-  }
-
-  String _buildItemSubtitle(
-    SyncQueueItemModel item, {
-    required bool hasPreview,
-  }) {
-    final meetingId = _extractMeetingId(item);
-    final details = <String>[
-      'Tipo: ${_typeLabel(item.type)}',
-      if (meetingId != null) 'Encontro: $meetingId',
-      'Tentativas: ${item.retryCount}',
-      'Criado por: ${item.createdBy}',
-      'Em: ${_formatDate(item.createdAt)}',
-      if (hasPreview) 'Imagem local disponível (toque para ampliar).',
-      if (item.errorMessage != null && item.errorMessage!.trim().isNotEmpty)
-        'Erro: ${item.errorMessage!.trim()}',
-    ];
-    return details.join('\n');
   }
 
   Future<void> _showLocalImagePreview(String path, String title) async {

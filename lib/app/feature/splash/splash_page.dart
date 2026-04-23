@@ -1,3 +1,4 @@
+import 'package:br_thp_meubenapp/app/core/service/app_update_service.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/i_token_storage.dart';
 import 'package:br_thp_meubenapp/app/core/storage/token/token_storage.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,9 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _checkSession() async {
+    await AppUpdateService.checkAndPrompt(context);
+    if (!mounted) return;
+
     final token = await _tokenStorage.getToken();
     if (!mounted) return;
 

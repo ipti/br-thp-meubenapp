@@ -3,5 +3,10 @@ class MeetingEndpoints {
 
   static const String meeting = '/meeting';
   static const String usersBff = '/user-bff';
-  static const String meetingBffSyncOffline = '/meeting-bff/sync-offline';
+  static String meetingBffSyncOffline({String? source}) {
+    final sourceQuery = (source == null || source.trim().isEmpty)
+        ? ''
+        : '?source=$source';
+    return '/meeting-bff/sync-offline$sourceQuery';
+  }
 }

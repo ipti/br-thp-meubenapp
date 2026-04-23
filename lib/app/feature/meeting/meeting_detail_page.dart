@@ -8,6 +8,7 @@ import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/meeting_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 class MeetingDetailPage extends StatefulWidget {
@@ -18,6 +19,10 @@ class MeetingDetailPage extends StatefulWidget {
 }
 
 class _MeetingDetailPageState extends State<MeetingDetailPage> {
+  static const String _statusApprovedAsset = 'assets/image/status-approved.svg';
+  static const String _statusDesapprovedAsset =
+      'assets/image/status-desapproved.svg';
+
   late final IMeetingRepository _repository;
   Future<MeetingDetailModel?>? _futureDetail;
 
@@ -441,24 +446,46 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                   child: ListView(
                     children: [
                       Text('Alunos (${detail.students.length})'),
+                      const SizedBox(height: 8),
+                      _buildAttendanceLegend(),
                       const SizedBox(height: 12),
                       ...detail.students.map((student) {
                         final absent = _absentStudentIds.contains(student.id);
 
                         return Card(
-                          child: CheckboxListTile(
-                            value: absent,
+                          child: ListTile(
+                            onTap: () => _toggleStudentAbsence(
+                              student.id,
+                              isAbsent: absent,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blueGrey.withValues(
+                                alpha: 0.12,
+                              ),
+                              child: const Icon(Icons.person_outline),
+                            ),
                             title: Text(student.name),
-                            subtitle: Text(absent ? 'Com falta' : 'Sem falta'),
-                            onChanged: (value) {
-                              setState(() {
-                                if (value == true) {
-                                  _absentStudentIds.add(student.id);
-                                } else {
-                                  _absentStudentIds.remove(student.id);
-                                }
-                              });
-                            },
+                            subtitle: Text(absent ? 'Faltou' : 'Presença'),
+                            trailing: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => _toggleStudentAbsence(
+                                student.id,
+                                isAbsent: absent,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 4,
+                                ),
+                                child: SvgPicture.asset(
+                                  absent
+                                      ? _statusDesapprovedAsset
+                                      : _statusApprovedAsset,
+                                  width: 26,
+                                  height: 26,
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       }),
@@ -558,5 +585,44 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildAttendanceLegend() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        _buildLegendItem(assetPath: _statusApprovedAsset, label: 'Presença'),
+        _buildLegendItem(assetPath: _statusDesapprovedAsset, label: 'Faltou'),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem({required String assetPath, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(assetPath, width: 18, height: 18),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  void _toggleStudentAbsence(int studentId, {required bool isAbsent}) {
+    setState(() {
+      if (isAbsent) {
+        _absentStudentIds.remove(studentId);
+      } else {
+        _absentStudentIds.add(studentId);
+      }
+    });
   }
 }

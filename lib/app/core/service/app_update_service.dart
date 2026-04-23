@@ -8,6 +8,7 @@ class AppUpdateService {
 
   static bool _checking = false;
   static bool _dialogShownThisLaunch = false;
+  static bool _startingUpdate = false;
 
   static Future<void> checkAndPrompt(BuildContext context) async {
     if (_checking || _dialogShownThisLaunch) return;
@@ -25,7 +26,7 @@ class AppUpdateService {
 
       if (!context.mounted) return;
       _dialogShownThisLaunch = true;
-      await _showUpdateDialog(context);
+      await _showForceUpdateDialog(context);
     } catch (_) {
       // Em falhas silenciosas (ex.: build de debug fora da Play Store),
       // simplesmente não mostramos modal para não bloquear o fluxo.
@@ -43,47 +44,47 @@ class AppUpdateService {
     }
   }
 
-  static Future<void> _showUpdateDialog(BuildContext context) async {
+  static Future<void> _showForceUpdateDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Atualização disponível'),
-          content: const Text(
-            'Existe uma nova versão do app na loja. '
-            'Atualize para continuar com melhorias e correções.',
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Atualização obrigatória'),
+            content: const Text(
+              'Existe uma nova versão do app na loja. '
+              'Para continuar usando, é necessário atualizar agora.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () async {
+                  await _startUpdateFlow(context);
+                },
+                child: const Text('Atualizar agora'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Agora não'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                await _startUpdateFlow(context);
-              },
-              child: const Text('Atualizar'),
-            ),
-          ],
         );
       },
     );
   }
 
   static Future<void> _startUpdateFlow(BuildContext context) async {
+    if (_startingUpdate) return;
+    _startingUpdate = true;
     try {
       await InAppUpdate.performImmediateUpdate();
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Não foi possível iniciar a atualização automática agora.',
-          ),
+          content: Text('Não foi possível atualizar agora. Tente novamente.'),
         ),
       );
+    } finally {
+      _startingUpdate = false;
     }
   }
 }
