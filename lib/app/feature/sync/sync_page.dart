@@ -377,13 +377,14 @@ class _SyncPageState extends State<SyncPage> {
                     color: Colors.blueGrey.shade800,
                     backgroundColor: Colors.blueGrey.withValues(alpha: 0.12),
                   ),
-                  if (meetingId != null)
-                    _buildInfoChip(
-                      icon: Icons.event_note_outlined,
-                      label: 'Encontro $meetingId',
-                      color: Colors.teal.shade800,
-                      backgroundColor: Colors.teal.withValues(alpha: 0.12),
-                    ),
+                               _buildInfoChip(
+                                 icon: Icons.event_note_outlined,
+                                 label: meetingId != null
+                                     ? 'Encontro $meetingId'
+                                     : 'Encontro não sincronizado',
+                                 color: Colors.teal.shade800,
+                                 backgroundColor: Colors.teal.withValues(alpha: 0.12),
+                               ),
                   _buildInfoChip(
                     icon: Icons.refresh_outlined,
                     label: 'Tentativas ${item.retryCount}',

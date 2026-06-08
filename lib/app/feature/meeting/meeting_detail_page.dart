@@ -34,6 +34,7 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
   bool _isOnline = false;
 
   final Set<int> _absentStudentIds = <int>{};
+  final Set<int> _savedAbsentStudentIds = <int>{};
   bool _saving = false;
   bool _uploadingArchive = false;
   final List<MeetingArchiveModel> _archives = [];
@@ -60,22 +61,32 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
       if (yearArg != null) _year = yearArg;
     }
 
+    _futureDetail = _buildDetailFuture();
+
+    _checkOnlineStatus();
+  }
+
+  Future<MeetingDetailModel?> _buildDetailFuture() {
     if ((_stId ?? '').isNotEmpty &&
         (_projectId ?? '').isNotEmpty &&
         (_classroomId ?? '').isNotEmpty &&
         (_meetingId ?? '').isNotEmpty) {
-      _futureDetail = _repository.getMeetingDetail(
+      return _repository.getMeetingDetail(
         year: _year,
         socialTechnologyId: _stId!,
         projectId: _projectId!,
         classroomId: _classroomId!,
         meetingId: _meetingId!,
       );
-    } else {
-      _futureDetail = Future.value(null);
     }
+    return Future.value(null);
+  }
 
-    _checkOnlineStatus();
+  void _refreshDetail() {
+    setState(() {
+      _futureDetail = _buildDetailFuture();
+      _stateInitializedForMeetingId = null;
+    });
   }
 
   Future<void> _checkOnlineStatus() async {
@@ -96,6 +107,9 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
         meetingId: detail.id,
         absentStudentIds: _absentStudentIds,
       );
+      _savedAbsentStudentIds
+        ..clear()
+        ..addAll(_absentStudentIds);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Faltas salvas com sucesso.')),
@@ -110,6 +124,16 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
         setState(() => _saving = false);
       }
     }
+  }
+
+  bool _hasUnsavedFoulsChanges() {
+    if (_savedAbsentStudentIds.length != _absentStudentIds.length) {
+      return true;
+    }
+    for (final id in _savedAbsentStudentIds) {
+      if (!_absentStudentIds.contains(id)) return true;
+    }
+    return false;
   }
 
   Future<void> _uploadArchive(MeetingDetailModel detail) async {
@@ -418,9 +442,13 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
               _stateInitializedForMeetingId = detail.id;
               _absentStudentIds.clear();
               _absentStudentIds.addAll(detail.absentStudentIds);
+              _savedAbsentStudentIds.clear();
+              _savedAbsentStudentIds.addAll(detail.absentStudentIds);
               _archives.clear();
               _archives.addAll(detail.archives);
             }
+
+            final hasUnsavedChanges = _hasUnsavedFoulsChanges();
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,6 +467,49 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                       : 'Status de rede: offline',
                   style: TextStyle(
                     color: _isOnline ? Colors.green : Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: hasUnsavedChanges
+                        ? Colors.orange.withValues(alpha: 0.14)
+                        : Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: hasUnsavedChanges
+                          ? Colors.orange.withValues(alpha: 0.5)
+                          : Colors.green.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        hasUnsavedChanges
+                            ? Icons.warning_amber_rounded
+                            : Icons.check_circle_outline,
+                        color: hasUnsavedChanges
+                            ? Colors.orange.shade800
+                            : Colors.green.shade800,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          hasUnsavedChanges
+                              ? 'Você alterou faltas. Toque em "Salvar faltas" para confirmar.'
+                              : 'Faltas sincronizadas com o último salvamento.',
+                          style: TextStyle(
+                            color: hasUnsavedChanges
+                                ? Colors.orange.shade900
+                                : Colors.green.shade900,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -517,8 +588,12 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/meeting_sync'),
+                          onPressed: () async {
+                            await Navigator.pushNamed(context, '/meeting_sync');
+                            if (!mounted) return;
+                            await _checkOnlineStatus();
+                            _refreshDetail();
+                          },
                           icon: const Icon(Icons.sync),
                           label: const Text('Abrir fila de sincronização'),
                         ),
@@ -574,9 +649,13 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ButtonDefault(
-                    onPressed: _saving ? null : () => _saveFouls(detail),
+                    onPressed: (_saving || !hasUnsavedChanges)
+                        ? null
+                        : () => _saveFouls(detail),
                     isLoading: _saving,
-                    text: 'Salvar faltas',
+                    text: hasUnsavedChanges
+                        ? 'Salvar faltas'
+                        : 'Faltas já salvas',
                   ),
                 ),
               ],
