@@ -11,6 +11,8 @@ import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/i_meeting
 import 'package:br_thp_meubenapp/app/feature/meeting/data/repositories/meeting_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 class MeetingPage extends StatefulWidget {
@@ -103,6 +105,17 @@ class _MeetingPageState extends State<MeetingPage> {
     if (request == null) return;
 
     try {
+      log('Criando encontro com dados: ${jsonEncode(request.toJson())}');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            online
+                ? 'Criando encontro online...'
+                : 'Sem conexão. Salvando encontro para sincronização futura.',
+          ),
+        ),
+      );
       final result = await _repository.createMeeting(request: request);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,9 +151,11 @@ class _MeetingPageState extends State<MeetingPage> {
     final nameController = TextEditingController();
     final themeController = TextEditingController();
     final workloadController = TextEditingController();
+    final profileSearchController = TextEditingController();
 
     DateTime? meetingDate;
     final selectedUsers = <int>{};
+    String profileFilter = '';
 
     return showDialog<MeetingCreateRequestModel>(
       context: context,
@@ -204,43 +219,65 @@ class _MeetingPageState extends State<MeetingPage> {
                     ),
                     if (allowUserSelection) ...[
                       const SizedBox(height: 8),
-                      const Text('Resposáveis vinculados'),
+                      const Text('Perfis vinculados'),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: profileSearchController,
+                        decoration: const InputDecoration(
+                          labelText: 'Buscar perfil',
+                          prefixIcon: Icon(Icons.search),
+                          isDense: true,
+                        ),
+                        onChanged: (value) =>
+                            setModalState(() => profileFilter = value),
+                      ),
                       const SizedBox(height: 8),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxHeight: 200),
                         child: users.isEmpty
-                            ? const Text('Nenhum usuário disponível.')
-                            : SingleChildScrollView(
-                                child: Column(
-                                  children: users.map((user) {
-                                    final selected = selectedUsers.contains(
-                                      user.id,
-                                    );
-                                    return CheckboxListTile(
-                                      dense: true,
-                                      value: selected,
-                                      title: Text(user.name),
-                                      subtitle: Text(
-                                        TranslateRole.translateRole(user.role),
-                                      ),
-                                      onChanged: (checked) {
-                                        setModalState(() {
-                                          if (checked == true) {
-                                            selectedUsers.add(user.id);
-                                          } else {
-                                            selectedUsers.remove(user.id);
-                                          }
-                                        });
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
+                            ? const Text('Nenhum perfil disponível.')
+                            : Builder(
+                                builder: (_) {
+                                  final filtered = users
+                                      .where(
+                                        (u) => u.name.toLowerCase().contains(
+                                          profileFilter.toLowerCase(),
+                                        ),
+                                      )
+                                      .toList();
+                                  if (filtered.isEmpty) {
+                                    return const Text('Nenhum perfil encontrado.');
+                                  }
+                                  return SingleChildScrollView(
+                                    child: Column(
+                                      children: filtered.map((user) {
+                                        final selected = selectedUsers.contains(
+                                          user.id,
+                                        );
+                                        return CheckboxListTile(
+                                          dense: true,
+                                          value: selected,
+                                          title: Text(user.name),
+                                          subtitle: Text(
+                                            TranslateRole.translateRole(
+                                              user.role,
+                                            ),
+                                          ),
+                                          onChanged: (checked) {
+                                            setModalState(() {
+                                              if (checked == true) {
+                                                selectedUsers.add(user.id);
+                                              } else {
+                                                selectedUsers.remove(user.id);
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  );
+                                },
                               ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Offline: Os responsáveis não serão vinculados neste momento.',
                       ),
                     ],
                   ],

@@ -38,7 +38,7 @@ class MeetingCreateRequestModel {
       'workload': workload,
       'classroom': classroomId,
       'theme': theme,
-      'users': users,
+      'profiles': users,
     };
   }
 }

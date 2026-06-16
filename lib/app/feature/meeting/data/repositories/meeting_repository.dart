@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
+import 'dart:developer';
+import 'dart:math' as math;
 
 import 'package:br_thp_meubenapp/app/core/config/api_config.dart';
 import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
@@ -42,7 +43,7 @@ class MeetingRepository implements IMeetingRepository {
   final MeetingOfflineDatasource _meetingOfflineDatasource;
   final SyncQueueLocalDatasource _syncQueueLocalDatasource;
   final TokenStorage _tokenStorage;
-  final Random _random = Random();
+  final math.Random _random = math.Random();
 
   @override
   Future<List<MeetingItemModel>> getMeetingsByClassroom({
@@ -477,28 +478,29 @@ class MeetingRepository implements IMeetingRepository {
   @override
   Future<List<MeetingAssigneeModel>> getMeetingAssignableUsers() async {
     final response = await _apiClient.get(
-      MeetingEndpoints.usersBff,
+      MeetingEndpoints.profiles,
       withAuthToken: true,
     );
 
-    final items = _extractListMaps(response.data);
-    final users = items
+    final data = response.data is Map ? response.data['data'] : response.data;
+    final items = _extractListMaps(data);
+    final profiles = items
         .map((item) {
           final id = int.tryParse(item['id']?.toString() ?? '');
           if (id == null) return null;
           return MeetingAssigneeModel(
             id: id,
-            name: item['name']?.toString() ?? 'Usuário',
-            role: item['role']?.toString() ?? '',
+            name: item['name']?.toString() ?? 'Perfil',
+            role: item['current_type']?.toString() ?? '',
             active: item['active'] == true,
           );
         })
         .whereType<MeetingAssigneeModel>()
-        .where((user) => user.active)
+        .where((p) => p.active)
         .toList();
 
-    users.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    return users;
+    profiles.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return profiles;
   }
 
   @override
@@ -789,6 +791,7 @@ class MeetingRepository implements IMeetingRepository {
   }
 
   Future<void> _createMeetingOnline(MeetingCreateRequestModel request) async {
+    log('Criando encontro online com requestId: ${request}');
     await _apiClient.post(
       MeetingEndpoints.meeting,
       withAuthToken: true,

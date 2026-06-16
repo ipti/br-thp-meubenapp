@@ -5,8 +5,10 @@ class TranslateRole {
         return 'Administrador';
       case 'USER':
         return 'Usuário';
+      case 'REAPPLICATOR':
       case 'REAPPLICATORS':
         return 'Reaplicador';
+      case 'COORDINATOR':
       case 'COORDINATORS':
         return 'Coordenador';
       default:

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:br_thp_meubenapp/app/core/config/api_config.dart';
 import 'package:br_thp_meubenapp/app/core/navigation/app_navigator.dart';
@@ -171,10 +172,15 @@ class ApiClient implements IApiClient {
           throw const ApiException('Metodo HTTP nao suportado.');
       }
 
+      log('[API] $method $uri');
+      if (body != null) log('[API] body: ${_encodeBody(body)}');
+
       final parsedData = _decodeBody(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return ApiResponse(statusCode: response.statusCode, data: parsedData);
       }
+
+      log('[API] erro ${response.statusCode}: ${response.body}');
 
       if (withAuthToken && _isUnauthorized(response.statusCode)) {
         await _handleUnauthorized();
